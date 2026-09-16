@@ -1,0 +1,7 @@
+FICTIONAL SAMPLE - NOT A VALID DOCUMENT
+Republic of India Passport
+Name: Sam Kumar
+Passport number: P1234567
+Nationality: Indian
+Date of birth: 1995-03-12
+Expiry date: 2032-06-10

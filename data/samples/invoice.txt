@@ -1,0 +1,7 @@
+FICTIONAL SAMPLE - NOT A VALID DOCUMENT
+Tax invoice
+Invoice number: INV4567890
+Name: Asha Sen
+Subtotal: INR 10000
+GST: 18 percent
+Amount due: INR 11800

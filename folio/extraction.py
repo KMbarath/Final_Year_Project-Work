@@ -1,0 +1,77 @@
+"""Native PDF extraction and explicit, selectable OCR adapters."""
+import io
+import shutil
+import subprocess
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import pymupdf
+from PIL import Image, ImageOps
+
+
+class FeatureUnavailable(RuntimeError):
+    pass
+
+
+class Extractor:
+    def __init__(self, backend="tesseract", max_pages=80):
+        self.backend, self.max_pages = backend, max_pages
+        self._paddle = None
+
+    def ocr(self, image):
+        if image.width * image.height > 30_000_000:
+            raise ValueError("Image exceeds 30 megapixels.")
+        image = ImageOps.exif_transpose(image).convert("RGB")
+        if self.backend == "paddle":
+            try:
+                from paddleocr import PaddleOCR
+                import numpy as np
+            except ImportError as exc:
+                raise FeatureUnavailable("Install the OCR extra to enable PaddleOCR.") from exc
+            if self._paddle is None:
+                self._paddle = PaddleOCR(lang="en", use_doc_orientation_classify=False,
+                                        use_doc_unwarping=False, use_textline_orientation=False)
+            results = self._paddle.predict(np.asarray(image))
+            lines = []
+            for result in results:
+                lines.extend(result["rec_texts"])
+            return "\n".join(lines)
+        executable = shutil.which("tesseract")
+        if not executable:
+            raise FeatureUnavailable("Install Tesseract or select PaddleOCR with FOLIO_OCR=paddle.")
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "page.png"
+            image.save(path)
+            result = subprocess.run([executable, str(path), "stdout", "-l", "eng"],
+                                    capture_output=True, timeout=90, check=True)
+            return result.stdout.decode("utf-8", errors="replace").strip()
+
+    def extract(self, content: bytes, filename: str):
+        suffix = Path(filename).suffix.lower()
+        if suffix in {".txt", ".md"}:
+            text = content.decode("utf-8-sig")
+            if "\x00" in text:
+                raise ValueError("The file is not a text document.")
+            return [{"page": 1, "text": text.strip(), "method": "text"}]
+        if suffix == ".pdf":
+            pages = []
+            with pymupdf.open(stream=content, filetype="pdf") as pdf:
+                if pdf.needs_pass:
+                    raise ValueError("Unlock this PDF before uploading it.")
+                if len(pdf) > self.max_pages:
+                    raise ValueError(f"Maximum {self.max_pages} PDF pages per upload.")
+                for number, page in enumerate(pdf, 1):
+                    text = page.get_text(sort=True).strip()
+                    method = "native_pdf"
+                    if len(text) < 30:
+                        if page.rect.width * page.rect.height * 4 > 30_000_000:
+                            raise ValueError("PDF page is too large to rasterize safely.")
+                        pix = page.get_pixmap(matrix=pymupdf.Matrix(2, 2), alpha=False)
+                        text = self.ocr(Image.open(io.BytesIO(pix.tobytes("png"))))
+                        method = self.backend
+                    pages.append({"page": number, "text": text, "method": method})
+            return pages
+        if suffix in {".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff"}:
+            with Image.open(io.BytesIO(content)) as image:
+                return [{"page": 1, "text": self.ocr(image), "method": self.backend}]
+        raise ValueError("Supported files: PDF, TXT, MD, PNG, JPG, WEBP and TIFF.")

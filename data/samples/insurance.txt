@@ -1,0 +1,7 @@
+FICTIONAL SAMPLE - NOT A VALID DOCUMENT
+Health insurance policy
+Insured name: Dev Patel
+Policy number: INS7654321
+Sum insured: INR 500000
+Premium paid: INR 12000
+Policy end date: 2026-10-06

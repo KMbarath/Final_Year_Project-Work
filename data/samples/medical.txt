@@ -1,0 +1,6 @@
+FICTIONAL SAMPLE - NOT A VALID DOCUMENT
+Hospital diagnostic laboratory report
+Patient name: Riya Shah
+Patient ID: MED98765
+Test: complete blood count
+Hemoglobin: 12.5 g/dL
