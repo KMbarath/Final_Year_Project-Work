@@ -10,7 +10,7 @@ Cite every factual sentence using source numbers such as [1]. Never invent a dat
 Return JSON with keys answer (string), source_ids (list of integer source numbers)."""
 
 
-def answer(question, hits, model="", url="http://127.0.0.1:11434", history=None):
+def answer(question, hits, model="", url="", history=None):
     if not hits:
         return {"answer": "I could not find supporting information in your documents.", "sources": [], "mode": "abstained"}
     if model:

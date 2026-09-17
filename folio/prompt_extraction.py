@@ -81,6 +81,15 @@ class PromptCatalog:
         if normalized in self.specs:
             return normalized
         lowered = text.lower()
+        compact_digits = re.sub(r"\D", "", text)
+        if (re.search(r"(?:\d[ -]?){12}", text) and
+                any(term in lowered for term in ("aadhaar", "government of india", "year of birth", "unique identification"))):
+            return "aadhaar" if "aadhaar" in self.specs else ""
+        if re.search(r"\b[A-Z]{5}\d{4}[A-Z]\b", text, re.I) and "pan" in self.specs:
+            return "pan"
+        if re.search(r"\b\d{2}[A-Z0-9]{10}Z[A-Z0-9]\b", text, re.I):
+            target = "gst_invoice" if "invoice" in lowered else "gst"
+            if target in self.specs: return target
         for phrase, name in aliases.items():
             if phrase in lowered and name in self.specs:
                 return name
@@ -97,7 +106,7 @@ class PromptCatalog:
 
 
 class PromptExtractor:
-    def __init__(self, path: Path, model: str = "", url: str = "http://127.0.0.1:11434", strict: bool = False):
+    def __init__(self, path: Path, model: str = "", url: str = "", strict: bool = False):
         self.catalog, self.model, self.url = PromptCatalog(path), model, url.rstrip("/")
         self.strict = strict
         self.last_error = ""
@@ -128,7 +137,7 @@ class PromptExtractor:
                 continue
             rendered = str(value).strip()
             match = re.search(re.escape(rendered), text, re.I)
-            is_date = label in {"expiry_date", "date_of_expiry", "dob", "date_of_birth", "issue_date"}
+            is_date = any(part in label for part in ("date", "valid_upto", "valid_until", "valid_till")) or label == "dob"
             normalized = parse_date(rendered) if is_date else rendered
             entities.append({"label": label, "text": rendered,
                              "start": match.start() if match else -1, "end": match.end() if match else -1,

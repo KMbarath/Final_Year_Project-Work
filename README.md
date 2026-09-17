@@ -104,7 +104,8 @@ model, and representative evaluation documents.
 The lightweight profile is usable without downloading every model. It clearly reports its
 active backends in Model lab and GET /api/status. Heavy integrations are lazy-loaded; first
 use can require network access to download public model weights. Document text is processed
-locally; the LLM adapter calls only the local Ollama server.
+locally; the LLM adapter calls only the configured Ollama-compatible endpoint. For local Ollama,
+set `FOLIO_OLLAMA_URL=http://127.0.0.1:11434` explicitly.
 
 | Component | Runnable local profile | Reference architecture integration |
 |---|---|---|
@@ -113,7 +114,7 @@ locally; the LLM adapter calls only the local Ollama server.
 | Classification | Trained character TF-IDF | Trained MiniLM; DistilBERT supported as --model |
 | Entities | Labelled-field parsing with source offsets | GLiNER via FOLIO_ENTITY_MODEL |
 | Retrieval | BM25 with page-preserving chunks | BGE-M3 + FAISS + BM25 reciprocal-rank fusion |
-| Answers | Exact source excerpts | Llama 3.1 / Mistral through local Ollama |
+| Answers | Exact source excerpts | Llama 3.1 / Mistral through an Ollama-compatible endpoint |
 | Speech input | Whisper adapter | Microphone capture; editable transcription |
 | Speech output | Piper adapter | Local WAV synthesis |
 | Translation | English by default | IndicTrans2, ten Indian-language options |
@@ -198,15 +199,39 @@ translation is not implemented. Long responses may be truncated by the translati
 - data/samples/: clearly fictional upload fixtures.
 - data/private/: local personal data (excluded from Git).
 
-## Container deployment
+## Permanent cloud deployment
 
-`Dockerfile` runs the API and mobile-first web app with Tesseract included. `render.yaml`
-describes a Render service with a persistent `/data` disk. For a public deployment, configure:
+The API and mobile-first frontend are one same-origin service, so they deploy together. The
+Docker image includes Tesseract and builds the checked-in synthetic baseline classifier during
+the image build; private databases and local model caches are never copied into the image.
+`render.yaml` describes a Render service with a persistent `/data` disk. Render's Starter
+service is required for a continuously available process and persistent disk; the free tier
+sleeps and cannot provide persistent disk storage.
+
+After connecting this repository in Render, set these environment variables before the first deploy:
 
 - `FOLIO_PUBLIC_URL` as the final HTTPS origin, without a trailing slash.
 - `FOLIO_ALLOWED_HOSTS` as the deployment hostname.
 - `FOLIO_SECURE_COOKIES=1`.
-- `FOLIO_OLLAMA_URL`, `FOLIO_OLLAMA_MODEL`, and `FOLIO_EXTRACTION_MODEL` for the external model service.
+- `FOLIO_REQUIRE_MODELS=0` for the built-in BM25/source-excerpt mode, or set it to `1` only
+	after all answer, extraction and embedding model variables are configured.
+- `FOLIO_OLLAMA_URL`, `FOLIO_OLLAMA_MODEL`, and `FOLIO_EXTRACTION_MODEL` only when using an
+	authenticated external Ollama-compatible service. Keep model credentials in Render secret
+	environment variables, never in Git.
+
+Render also supplies `RENDER_EXTERNAL_HOSTNAME`; the application uses it as a fallback for
+host validation and verification links when the two public-host variables are not set. Explicit
+values are still recommended because they make custom-domain changes deliberate.
+
+Deployment steps:
+
+1. Push this repository to GitHub and confirm the default branch contains `Dockerfile` and `render.yaml`.
+2. In Render, choose **New > Blueprint**, connect the repository, and apply `render.yaml`.
+3. Set `FOLIO_PUBLIC_URL` to the Render HTTPS URL and `FOLIO_ALLOWED_HOSTS` to its hostname only.
+4. Add an SMTP provider's host, port, username, password and sender as Render secret variables if email verification/reminders are required.
+5. Deploy and check `https://your-host.example/api/status`; then create an account and upload a sample document.
+6. Keep the Render persistent disk mounted at `/data`. Do not use the free plan for this service,
+	 because its ephemeral filesystem would lose documents on restart.
 
 Do not expose an unauthenticated Ollama server to the internet. Put it behind a private network
 or authenticated gateway. The SQLite disk is persistent but not encrypted; use platform disk
