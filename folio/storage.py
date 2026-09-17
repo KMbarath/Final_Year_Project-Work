@@ -26,6 +26,11 @@ class Store:
               document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
               expiry_date TEXT NOT NULL,message TEXT NOT NULL,created_at TEXT NOT NULL,
               PRIMARY KEY(document_id,expiry_date));
+                        CREATE TABLE IF NOT EXISTS document_shares(
+                            document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                            user_id TEXT NOT NULL,
+                            created_at TEXT NOT NULL,
+                            PRIMARY KEY(document_id,user_id));
             """)
             columns={r["name"] for r in db.execute("PRAGMA table_info(documents)")}
             if "owner_id" not in columns:
@@ -44,8 +49,13 @@ class Store:
             CREATE TABLE IF NOT EXISTS messages(
               id INTEGER PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
               role TEXT NOT NULL,content TEXT NOT NULL,payload TEXT NOT NULL,created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS audit_events(
+              id INTEGER PRIMARY KEY,owner_id TEXT NOT NULL,event TEXT NOT NULL,
+              document_id TEXT REFERENCES documents(id) ON DELETE SET NULL,
+              detail TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS docs_owner ON documents(owner_id);
             CREATE INDEX IF NOT EXISTS chats_owner ON conversations(owner_id);
+            CREATE INDEX IF NOT EXISTS audit_owner_created ON audit_events(owner_id,created_at DESC);
             """)
 
     @contextmanager
@@ -67,11 +77,36 @@ class Store:
 
     def list(self,owner_id=None):
         with self.connect() as db:
-            return [self.decode(r) for r in db.execute("SELECT * FROM documents WHERE owner_id IS ? ORDER BY created_at DESC",(owner_id,))]
+            return [self.decode(r) for r in db.execute("""SELECT d.* FROM documents d
+                WHERE d.owner_id IS ? OR EXISTS (SELECT 1 FROM document_shares s WHERE s.document_id=d.id AND s.user_id=?)
+                ORDER BY d.created_at DESC""",(owner_id,owner_id))]
 
     def get(self,document_id,owner_id=None):
         with self.connect() as db:
-            return self.decode(db.execute("SELECT * FROM documents WHERE id=? AND owner_id IS ?",(document_id,owner_id)).fetchone())
+            return self.decode(db.execute("""SELECT d.* FROM documents d
+                WHERE d.id=? AND (d.owner_id IS ? OR EXISTS (SELECT 1 FROM document_shares s WHERE s.document_id=d.id AND s.user_id=?))""",
+                (document_id,owner_id,owner_id)).fetchone())
+
+    def share(self,document_id,user_id,owner_id):
+        with self.connect() as db:
+            owner=db.execute("SELECT 1 FROM documents WHERE id=? AND owner_id=?",(document_id,owner_id)).fetchone()
+            if owner is None:return False
+            db.execute("INSERT OR IGNORE INTO document_shares VALUES (?,?,?)",(document_id,user_id,now()))
+        return True
+
+    def unshare(self,document_id,user_id,owner_id):
+        with self.connect() as db:
+            owner=db.execute("SELECT 1 FROM documents WHERE id=? AND owner_id=?",(document_id,owner_id)).fetchone()
+            if owner is None:return False
+            db.execute("DELETE FROM document_shares WHERE document_id=? AND user_id=?",(document_id,user_id))
+        return True
+
+    def shares(self,document_id,owner_id):
+        with self.connect() as db:
+            return [dict(row) for row in db.execute("""SELECT s.user_id,s.created_at,u.email
+                FROM document_shares s JOIN users u ON u.id=s.user_id
+                JOIN documents d ON d.id=s.document_id WHERE s.document_id=? AND d.owner_id=?""",
+                (document_id,owner_id))]
 
     def by_digest(self,digest,owner_id=None):
         with self.connect() as db:
@@ -123,7 +158,9 @@ class Store:
 
     def original(self,document_id,owner_id=None):
         with self.connect() as db:
-            row=db.execute("SELECT o.content FROM originals o JOIN documents d ON d.id=o.document_id WHERE d.id=? AND d.owner_id IS ?",(document_id,owner_id)).fetchone()
+            row=db.execute("""SELECT o.content FROM originals o JOIN documents d ON d.id=o.document_id
+                WHERE d.id=? AND (d.owner_id IS ? OR EXISTS (SELECT 1 FROM document_shares s WHERE s.document_id=d.id AND s.user_id=?))""",
+                (document_id,owner_id,owner_id)).fetchone()
         return row["content"] if row else None
 
     def new_chat(self,owner_id,document_id=None):
@@ -160,3 +197,33 @@ class Store:
     def delete_chat(self,cid,owner_id):
         with self.connect() as db:
             db.execute("DELETE FROM conversations WHERE id=? AND owner_id=?",(cid,owner_id))
+
+    def audit(self,owner_id,event,document_id=None,detail=""):
+        """Record a concise private event without keeping document text or credentials."""
+        with self.connect() as db:
+            db.execute("INSERT INTO audit_events(owner_id,event,document_id,detail,created_at) VALUES (?,?,?,?,?)",
+                       (owner_id,event,document_id,detail[:200],now()))
+
+    def dashboard(self,owner_id,today=None):
+        today=today or date.today()
+        documents=self.list(owner_id)
+        total_bytes=sum(len(self.original(d["id"],owner_id) or b"") for d in documents)
+        recommendations=[]
+        for document in documents:
+            if not document["expiry_date"]:
+                continue
+            days=(date.fromisoformat(document["expiry_date"])-today).days
+            if days < 0:
+                message=f"Review {document['filename']}: it expired {-days} day(s) ago."
+            elif days == 0:
+                message=f"Renew or review {document['filename']}: it expires today."
+            elif days <= 60:
+                message=f"Plan renewal for {document['filename']}: it expires in {days} day(s)."
+            else:
+                continue
+            recommendations.append({"document_id":document["id"],"message":message})
+        with self.connect() as db:
+            activity=[dict(row) for row in db.execute("SELECT event,document_id,detail,created_at FROM audit_events WHERE owner_id=? ORDER BY id DESC LIMIT 8",(owner_id,))]
+        return {"document_count":len(documents),"storage_bytes":total_bytes,
+                "upcoming_expiries":sum(bool(d["expiry_date"]) and (date.fromisoformat(d["expiry_date"])-today).days<=30 for d in documents),
+                "recommendations":recommendations[:5],"recent_activity":activity}

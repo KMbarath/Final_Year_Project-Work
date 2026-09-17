@@ -46,6 +46,10 @@ class Expiry(BaseModel):
     expiry_date:date|None=None
 
 
+class ShareCreate(BaseModel):
+    email:str=Field(min_length=3,max_length=254)
+
+
 def create_app(settings=None):
     settings=settings or Settings()
     assistant=Assistant(settings)
@@ -124,6 +128,7 @@ def create_app(settings=None):
     def signup(body:Credentials,request:Request,response:Response):
         throttle(request,"signup",5)
         user=accounts.signup(body.email,body.password)
+        assistant.store.audit(user["id"],"account_created")
         set_session(response,user)
         return {"user":user,"verification_email":send_verification(user)}
 
@@ -132,11 +137,13 @@ def create_app(settings=None):
         throttle(request,"login")
         user=accounts.login(body.email,body.password)
         if user is None:raise HTTPException(401,"Email or password is incorrect.")
+        assistant.store.audit(user["id"],"logged_in")
         set_session(response,user)
         return {"user":user}
 
     @app.post("/api/auth/logout")
     def logout(request:Request,response:Response):
+        assistant.store.audit(uid(request),"logged_out")
         accounts.logout(request.cookies.get(COOKIE))
         response.delete_cookie(COOKIE,path="/")
         return {"ok":True}
@@ -176,6 +183,12 @@ def create_app(settings=None):
         if found is None:raise HTTPException(404,"Document not found.")
         return found
 
+    def owner_document(document_id,request):
+        found=assistant.store.get(document_id,uid(request))
+        if found is None:raise HTTPException(404,"Document not found.")
+        if found["owner_id"] != uid(request):raise HTTPException(403,"Only the document owner can change sharing.")
+        return found
+
     @app.get("/api/documents")
     def documents(request:Request):return assistant.store.list(uid(request))
 
@@ -185,24 +198,60 @@ def create_app(settings=None):
         await file.close()
         if len(data)>settings.max_upload_bytes:raise HTTPException(413,"Maximum upload size is 20 MB.")
         result=await run_in_threadpool(assistant.ingest,data,file.filename or "document.txt",uid(request))
+        assistant.store.audit(uid(request),"document_uploaded",result["id"],result["filename"])
         await run_in_threadpool(notifications.queue)
         return result
 
     @app.get("/api/documents/{document_id}")
-    def document(document_id:str,request:Request):return owned(document_id,request)
+    def document(document_id:str,request:Request):
+        result=owned(document_id,request)
+        assistant.store.audit(uid(request),"document_viewed",document_id,result["filename"])
+        return result
+
+    @app.get("/api/dashboard")
+    def dashboard(request:Request):return assistant.store.dashboard(uid(request))
+
+    @app.get("/api/activity")
+    def activity(request:Request):return assistant.store.dashboard(uid(request))["recent_activity"]
 
     @app.get("/api/documents/{document_id}/download")
     def download(document_id:str,request:Request):
         found=owned(document_id,request)
         original=assistant.store.original(document_id,uid(request))
         if original is None:raise HTTPException(404,"Original document not found.")
+        assistant.store.audit(uid(request),"document_downloaded",document_id,found["filename"])
         return Response(original,media_type="application/octet-stream",
                         headers={"Content-Disposition":"attachment; filename*=UTF-8''"+quote(found["filename"])})
+
+    @app.post("/api/documents/{document_id}/share")
+    @app.post("/api/documents/{document_id}/shares")
+    def share(document_id:str,body:ShareCreate,request:Request):
+        owner_document(document_id,request)
+        recipient=accounts.by_email(body.email)
+        if recipient is None:raise HTTPException(404,"Recipient account not found.")
+        if recipient["id"] == uid(request):raise HTTPException(400,"The document is already in your workspace.")
+        assistant.store.share(document_id,recipient["id"],uid(request))
+        assistant.store.audit(uid(request),"document_shared",document_id,recipient["email"])
+        return {"document_id":document_id,"user":recipient}
+
+    @app.get("/api/documents/{document_id}/shares")
+    def shares(document_id:str,request:Request):
+        owner_document(document_id,request)
+        return assistant.store.shares(document_id,uid(request))
+
+    @app.delete("/api/documents/{document_id}/share/{shared_user_id}",status_code=204)
+    @app.delete("/api/documents/{document_id}/shares/{shared_user_id}",status_code=204)
+    def unshare(document_id:str,shared_user_id:str,request:Request):
+        owner_document(document_id,request)
+        assistant.store.unshare(document_id,shared_user_id,uid(request))
+        assistant.store.audit(uid(request),"document_share_revoked",document_id,shared_user_id)
+        return Response(status_code=204)
 
     @app.delete("/api/documents/{document_id}",status_code=204)
     def delete(document_id:str,request:Request):
         with assistant.lock:
-            owned(document_id,request)
+            found=owned(document_id,request)
+            assistant.store.audit(uid(request),"document_deleted",document_id,found["filename"])
             assistant.store.delete(document_id,uid(request))
             assistant.retriever._cache_key=None
         return Response(status_code=204)
@@ -211,6 +260,7 @@ def create_app(settings=None):
     def expiry(document_id:str,body:Expiry,request:Request):
         owned(document_id,request)
         result=assistant.store.confirm_expiry(document_id,body.expiry_date.isoformat() if body.expiry_date else None,uid(request))
+        assistant.store.audit(uid(request),"expiry_updated",document_id,result["expiry_date"] or "cleared")
         notifications.queue()
         return result
 
@@ -230,6 +280,7 @@ def create_app(settings=None):
     def delete_chat(cid:str,request:Request):
         if assistant.store.chat(cid,uid(request)) is None:raise HTTPException(404,"Conversation not found.")
         assistant.store.delete_chat(cid,uid(request))
+        assistant.store.audit(uid(request),"conversation_deleted",detail=cid)
         return Response(status_code=204)
 
     @app.post("/api/chat")
@@ -246,6 +297,7 @@ def create_app(settings=None):
             result=assistant.ask(body.question.strip(),scope,body.language,uid(request),conversation["messages"])
             result["conversation_id"]=conversation["id"]
             assistant.store.append_turn(conversation["id"],uid(request),body.question.strip(),result,scope)
+            assistant.store.audit(uid(request),"question_asked",scope,"conversation="+conversation["id"])
             return result
 
     @app.get("/api/reminders")

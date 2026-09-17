@@ -49,11 +49,14 @@ class Retriever:
         lengths = np.array([sum(b.values()) for b in bags])
         avg = max(float(lengths.mean()), 1)
         scores = np.zeros(len(chunks))
+        vocabulary = set().union(*(bag.keys() for bag in bags))
         for term in set(tokens(question)):
-            frequency = sum(term in b for b in bags)
-            idf = math.log(1 + (len(chunks) - frequency + 0.5) / (frequency + 0.5))
-            tf = np.array([b[term] for b in bags])
-            scores += idf * (tf * 2.5) / (tf + 1.5 * (0.25 + 0.75 * lengths / avg))
+            matches = [candidate for candidate in vocabulary if candidate == term or candidate.startswith(term)]
+            for matched_term in matches:
+                frequency = sum(matched_term in b for b in bags)
+                idf = math.log(1 + (len(chunks) - frequency + 0.5) / (frequency + 0.5))
+                tf = np.array([b[matched_term] for b in bags])
+                scores += idf * (tf * 2.5) / (tf + 1.5 * (0.25 + 0.75 * lengths / avg))
         for i, chunk in enumerate(chunks):
             if chunk.get("kind") == "structured_facts":
                 scores[i] *= 1.35

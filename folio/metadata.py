@@ -5,12 +5,16 @@ DATE = r"(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4}|\d{1,2}[
 FIELDS = {
     "name": r"(?:full name|holder name|patient name|insured name|name)\s*[:\-]\s*([^\n;]+)",
     "date_of_birth": r"(?:date of birth|dob)\s*[:\-]?\s*("+DATE+r")",
-    "expiry_date": r"(?:expiry date|expiration date|expire date|date of expiry|expires(?: on)?|valid (?:until|till|through|thru|to)|policy end date|expiry|expiration)\s*[:\-]?\s*("+DATE+r")",
+    "expiry_date": r"(?:expiry date|expiration date|expire date|date of expiry|due date|expires(?: on)?|valid (?:until|till|through|thru|to)|policy end date|expiry|expiration)\s*[:\-]?\s*("+DATE+r")",
     "issue_date": r"(?:issue date|date of issue|issued on)\s*[:\-]?\s*("+DATE+r")",
     "document_number": r"(?:passport (?:no\.?|number)|pan(?: number)?|aadhaar(?: number)?|policy (?:no\.?|number)|document number|invoice number|registration (?:no\.?|number)|roll (?:no\.?|number)|patient id)\s*[:\-]\s*([A-Za-z0-9 /\-]+)",
     "email": r"(?:e-?mail(?: address)?)\s*[:\-]\s*([^\s;]+@[^\s;]+)",
     "phone": r"(?:phone|mobile|telephone)(?: number)?\s*[:\-]\s*([+\d][\d ()-]{6,20})",
     "amount": r"(?:total amount|amount due|sum insured|premium paid|subtotal)\s*[:\-]\s*([^\n;]+)",
+    "address": r"address\s*[:\-]\s*([^\n;]+)",
+    "owner": r"owner\s*[:\-]\s*([^\n;]+)",
+    "hospital_name": r"hospital name\s*[:\-]\s*([^\n;]+)",
+    "property_details": r"property details\s*[:\-]\s*([^\n;]+)",
 }
 
 

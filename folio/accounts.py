@@ -41,6 +41,11 @@ class Accounts:
             row=db.execute("SELECT * FROM users WHERE id=?",(uid,)).fetchone()
         return self.public(row) if row else None
 
+    def by_email(self,email):
+        with self.store.connect() as db:
+            row=db.execute("SELECT * FROM users WHERE email=?",(email.strip().lower(),)).fetchone()
+        return self.public(row) if row else None
+
     def signup(self,email,password):
         email=email.strip().lower()
         if len(email)>254 or not re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_{}|~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+",email):

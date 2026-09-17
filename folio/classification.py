@@ -33,6 +33,17 @@ class Classifier:
             index = int(probabilities.argmax())
             label, confidence = str(self._model["classifier"].classes_[index]), float(probabilities[index])
         threshold = float(self._meta.get("confidence_threshold", 0.7))
-        return {"label": label if confidence >= threshold else "unknown", "suggested_label": label,
+        signatures = {
+            "passport": ("passport", "passport number"),
+            "medical": ("medical report", "patient", "diagnosis"),
+            "insurance": ("insurance", "policy number", "premium"),
+            "invoice": ("invoice", "amount due", "subtotal"),
+            "aadhaar": ("aadhaar", "unique identification"),
+            "pan": ("pan number", "income tax"),
+        }
+        matched = sum(any(marker in text.lower() for marker in markers) for markers in signatures.values())
+        ambiguous = matched > 1
+        predicted = "unknown" if ambiguous or confidence < threshold else label
+        return {"label": predicted, "suggested_label": label,
                 "confidence": confidence, "backend": self.backend,
-                "training_data": self._meta.get("data_kind", "unverified"), "needs_review": confidence < threshold}
+            "training_data": self._meta.get("data_kind", "unverified"), "needs_review": ambiguous or confidence < threshold}

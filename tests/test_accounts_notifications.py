@@ -54,6 +54,18 @@ def test_auth_required_and_password_storage(app):
         assert c.post("/api/auth/login",json={"email":user["email"],"password":PASSWORD}).status_code==200
 
 
+def test_dashboard_activity_and_expiry_recommendation(app):
+    with TestClient(app) as c:
+        signup(c,"dashboard@example.com")
+        document=upload(c,f"Passport\nExpiry date: {(date.today()+timedelta(days=15)).isoformat()}","renewal.txt")
+        dashboard=c.get("/api/dashboard").json()
+        assert dashboard["document_count"]==1 and dashboard["storage_bytes"]>0
+        assert dashboard["upcoming_expiries"]==1
+        assert dashboard["recommendations"][0]["document_id"]==document["id"]
+        events=c.get("/api/activity").json()
+        assert any(event["event"]=="document_uploaded" for event in events)
+
+
 def test_accounts_cannot_access_each_others_documents_chats_or_sources(app):
     with TestClient(app) as a,TestClient(app) as b:
         signup(a,"alice@example.com");signup(b,"bob@example.com")

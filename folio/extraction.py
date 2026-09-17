@@ -1,5 +1,6 @@
 """Native PDF extraction and explicit, selectable OCR adapters."""
 import io
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -7,6 +8,8 @@ from tempfile import TemporaryDirectory
 
 import pymupdf
 from PIL import Image, ImageOps
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class FeatureUnavailable(RuntimeError):
@@ -21,7 +24,8 @@ class Extractor:
     def ocr(self, image):
         if image.width * image.height > 30_000_000:
             raise ValueError("Image exceeds 30 megapixels.")
-        image = ImageOps.exif_transpose(image).convert("RGB")
+        # Improve contrast for OCR only; preserve the original upload unchanged.
+        image = ImageOps.autocontrast(ImageOps.exif_transpose(image).convert("RGB"))
         if self.backend == "paddle":
             try:
                 from paddleocr import PaddleOCR
@@ -42,9 +46,30 @@ class Extractor:
         with TemporaryDirectory() as folder:
             path = Path(folder) / "page.png"
             image.save(path)
+            tessdata = ROOT / "artifacts" / "tessdata"
+            orientation = subprocess.run([executable, str(path), "stdout", "--psm", "0", "-l", "osd"],
+                                         capture_output=True, timeout=30, check=False)
+            orientation_text = orientation.stdout.decode("utf-8", errors="replace")
+            match = re.search(r"Rotate:\s*(\d+)", orientation_text)
+            confidence = re.search(r"Orientation confidence:\s*([0-9.]+)", orientation_text)
+            orientation_confidence = float(confidence.group(1)) if confidence else 0.0
+            if match and orientation_confidence < 1.0:
+                degrees = int(match.group(1)) % 360
+                if degrees:
+                    image = image.rotate(-degrees, expand=True, fillcolor="white")
+                    image.save(path)
             result = subprocess.run([executable, str(path), "stdout", "-l", "eng"],
                                     capture_output=True, timeout=90, check=True)
-            return result.stdout.decode("utf-8", errors="replace").strip()
+            text = result.stdout.decode("utf-8", errors="replace").strip()
+            if (tessdata / "tam.traineddata").exists():
+                tamil = subprocess.run([executable, "--tessdata-dir", str(tessdata), str(path), "stdout", "-l", "tam"],
+                                              capture_output=True, timeout=90, check=True)
+                multilingual_text = tamil.stdout.decode("utf-8", errors="replace").strip()
+                ascii_letters = sum(character.isascii() and character.isalpha() for character in text)
+                non_ascii_letters = sum((not character.isascii()) and character.isalpha() for character in multilingual_text)
+                if non_ascii_letters > ascii_letters:
+                    text = multilingual_text
+            return text
 
     def extract(self, content: bytes, filename: str):
         suffix = Path(filename).suffix.lower()
@@ -77,7 +102,11 @@ class Extractor:
             return [{"page": 1, "text": text, "method": "doc"}]
         if suffix == ".pdf":
             pages = []
-            with pymupdf.open(stream=content, filetype="pdf") as pdf:
+            try:
+                pdf = pymupdf.open(stream=content, filetype="pdf")
+            except Exception as exc:
+                raise ValueError("Could not read the PDF document.") from exc
+            with pdf:
                 if pdf.needs_pass:
                     raise ValueError("Unlock this PDF before uploading it.")
                 if len(pdf) > self.max_pages:
