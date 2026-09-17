@@ -18,7 +18,8 @@ class Store:
             CREATE TABLE IF NOT EXISTS documents(
               id TEXT PRIMARY KEY,filename TEXT NOT NULL,digest TEXT UNIQUE NOT NULL,
               created_at TEXT NOT NULL,pages TEXT NOT NULL,classification TEXT NOT NULL,
-              entities TEXT NOT NULL,expiry_date TEXT,expiry_confirmed INTEGER DEFAULT 0,owner_id TEXT);
+              entities TEXT NOT NULL,expiry_date TEXT,expiry_confirmed INTEGER DEFAULT 0,owner_id TEXT,
+              document_type TEXT DEFAULT 'unknown');
             CREATE TABLE IF NOT EXISTS originals(
               document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,content BLOB NOT NULL);
             CREATE TABLE IF NOT EXISTS notifications(
@@ -33,6 +34,8 @@ class Store:
                     with sqlite3.connect(backup) as target:
                         db.backup(target)
                 db.execute("ALTER TABLE documents ADD COLUMN owner_id TEXT")
+            if "document_type" not in columns:
+                db.execute("ALTER TABLE documents ADD COLUMN document_type TEXT DEFAULT 'unknown'")
             db.executescript("""
             CREATE TABLE IF NOT EXISTS conversations(
               id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,title TEXT NOT NULL,
@@ -76,9 +79,9 @@ class Store:
 
     def add(self,item):
         with self.connect() as db:
-            db.execute("INSERT INTO documents(id,filename,digest,created_at,pages,classification,entities,expiry_date,owner_id) VALUES (?,?,?,?,?,?,?,?,?)",
+            db.execute("INSERT INTO documents(id,filename,digest,created_at,pages,classification,entities,expiry_date,owner_id,document_type) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (item["id"],item["filename"],item["digest"],now(),json.dumps(item["pages"]),json.dumps(item["classification"]),
-                 json.dumps(item["entities"]),item["expiry_date"],item.get("owner_id")))
+                 json.dumps(item["entities"]),item["expiry_date"],item.get("owner_id"),item.get("document_type", "unknown")))
             if item.get("content") is not None:
                 db.execute("INSERT INTO originals VALUES (?,?)",(item["id"],item["content"]))
         return self.get(item["id"],item.get("owner_id"))

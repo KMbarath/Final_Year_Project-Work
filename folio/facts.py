@@ -29,16 +29,19 @@ def field_answer(question, documents):
     lines, sources = [], []
     for label in labels:
         found = []
-        for page in doc["pages"]:
-            for entity in EntityExtractor().extract(page["text"]):
+        stored = doc.get("entities") or []
+        candidates = stored if stored else [e for page in doc["pages"] for e in EntityExtractor().extract(page["text"])]
+        for entity in candidates:
+                page = next((p for p in doc["pages"] if entity.get("text", "") in p["text"]), doc["pages"][0])
                 if entity["label"] != label:
                     continue
                 value = entity.get("normalized")
                 if not value:
                     continue
                 # Preserve the original label (e.g. insured name / premium paid).
-                line_start = page["text"].rfind("\n", 0, entity["start"]) + 1
-                caption = page["text"][line_start:entity["start"]].strip().rstrip(":- ")
+                start = page["text"].find(entity.get("text", ""))
+                line_start = page["text"].rfind("\n", 0, max(start, 0)) + 1
+                caption = page["text"][line_start:start].strip().rstrip(":- ") if start >= 0 else ""
                 if label == "amount" and any(w in q for w in ("premium", "sum insured", "subtotal")):
                     if not any(w in q and w in caption.lower() for w in ("premium", "sum insured", "subtotal")):
                         continue

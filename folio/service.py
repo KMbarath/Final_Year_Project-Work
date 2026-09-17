@@ -11,6 +11,7 @@ from .answering import answer
 from .voice import Voice
 from .facts import field_answer, is_feedback
 from .overview import is_greeting, is_overview, overview
+from .prompt_extraction import PromptExtractor
 
 
 class Assistant:
@@ -21,6 +22,7 @@ class Assistant:
         self.extractor = Extractor(settings.ocr_backend, settings.max_pages)
         self.classifier = Classifier(settings.classifier_path, settings.classifier_backend)
         self.entities = EntityExtractor(settings.entity_model)
+        self.prompt_extractor = PromptExtractor(settings.prompts_path, settings.extraction_model, settings.ollama_url)
         self.retriever = Retriever(settings.embedding_model)
         self.voice = Voice(settings)
         self.lock = threading.RLock()
@@ -37,12 +39,17 @@ class Assistant:
             text = "\n".join(p["text"] for p in pages)
             if len(text.strip()) < 5:
                 raise ValueError("No readable text was found. Try a clearer scan.")
+            classification = self.classifier.predict(text)
             entities = self.entities.extract(text)
+            document_type, prompt_entities = self.prompt_extractor.extract(text, classification.get("label", ""))
+            existing = {(e["label"], str(e.get("normalized", "")).lower()) for e in entities}
+            entities.extend(e for e in prompt_entities if (e["label"], str(e.get("normalized", "")).lower()) not in existing)
             dates = {e["normalized"] for e in entities if e["label"] == "expiry_date" and e["normalized"]}
             expiry = next(iter(dates)) if len(dates)==1 else None
             return self.store.add({"id": uuid.uuid4().hex, "filename": PureWindowsPath(filename).name[:200],
                                    "owner_id": owner_id, "digest": digest, "content": content, "pages": pages, "entities": entities, "expiry_date": expiry,
-                                   "classification": self.classifier.predict(text)})
+                                   "document_type": document_type or classification.get("label", "unknown"),
+                                   "classification": classification})
 
     def ask(self, question, document_id=None, language="en", owner_id=None, history=None):
         if is_greeting(question):

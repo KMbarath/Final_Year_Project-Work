@@ -1,0 +1,9 @@
+.git
+.venv
+__pycache__
+*.pyc
+data/private
+artifacts
+notebooks
+tests
+.DS_Store

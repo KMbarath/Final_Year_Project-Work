@@ -8,6 +8,8 @@ from folio.api import create_app
 from folio.config import Settings
 from folio.metadata import EntityExtractor,parse_date
 from folio.retrieval import chunk_pages,Retriever
+from folio.prompt_extraction import PromptCatalog, PromptExtractor
+from folio.config import ROOT
 from training.data import generate,load_rows,split_rows,fingerprint
 
 TEXT=b"Republic of India Passport\nName: Sam Kumar\nPassport number: P1234567\nExpiry date: 2032-06-10"
@@ -107,6 +109,19 @@ def test_chunking_and_empty_search():
     assert len(words)==500
     assert Retriever().search("nothing",[])==[]
     with pytest.raises(ValueError):chunk_pages(doc,size=20,overlap=20)
+
+
+def test_prompt_catalog_and_structured_facts():
+    catalog = PromptCatalog(ROOT / "prompts.yaml")
+    assert len(catalog.specs) >= 40
+    text = "INCOME TAX DEPARTMENT\nName: LOHITH KUMAR A\nPAN No: AOQPL6521H\nDate: 04/11/1986"
+    assert catalog.identify(text) == "pan"
+    doc_type, entities = PromptExtractor(ROOT / "prompts.yaml").extract(text)
+    assert doc_type == "pan"
+    assert any(e["label"] == "pan_no" and e["normalized"] == "AOQPL6521H" for e in entities)
+    document={"id":"1","filename":"pan.txt","entities":entities,"pages":[{"page":1,"text":text}]}
+    hits=Retriever().search("What is the PAN number?",[document])
+    assert hits and hits[0]["kind"] == "structured_facts"
 
 
 def test_split_groups_and_duplicates(tmp_path):

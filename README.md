@@ -82,6 +82,25 @@ together; inspect near-duplicates. Example command:
 
 ## Model integrations
 
+### Prompt-driven extraction
+
+The checked-in `prompts.yaml` catalog is now the source of truth for structured extraction
+across 84 document types. Folio identifies the closest catalog type, applies its strict JSON
+schema through Ollama, stores the extracted fields with confidence metadata, and adds those
+facts to the retrieval index alongside page-preserving OCR text. Set an external Ollama-compatible
+endpoint and models with:
+
+~~~bash
+FOLIO_OLLAMA_URL=https://your-ollama-host.example
+FOLIO_EXTRACTION_MODEL=qwen2.5:7b
+FOLIO_OLLAMA_MODEL=qwen2.5:7b
+~~~
+
+If the model endpoint is unavailable, labelled fields are still extracted against the selected
+prompt schema and the failure is reported by `/api/status`. This fallback is deliberately
+conservative; production-quality extraction still depends on a capable vision/OCR pipeline,
+model, and representative evaluation documents.
+
 The lightweight profile is usable without downloading every model. It clearly reports its
 active backends in Model lab and GET /api/status. Heavy integrations are lazy-loaded; first
 use can require network access to download public model weights. Document text is processed
@@ -178,6 +197,20 @@ translation is not implemented. Long responses may be truncated by the translati
 - artifacts/: trained weights, histories and reports (excluded from Git).
 - data/samples/: clearly fictional upload fixtures.
 - data/private/: local personal data (excluded from Git).
+
+## Container deployment
+
+`Dockerfile` runs the API and mobile-first web app with Tesseract included. `render.yaml`
+describes a Render service with a persistent `/data` disk. For a public deployment, configure:
+
+- `FOLIO_PUBLIC_URL` as the final HTTPS origin, without a trailing slash.
+- `FOLIO_ALLOWED_HOSTS` as the deployment hostname.
+- `FOLIO_SECURE_COOKIES=1`.
+- `FOLIO_OLLAMA_URL`, `FOLIO_OLLAMA_MODEL`, and `FOLIO_EXTRACTION_MODEL` for the external model service.
+
+Do not expose an unauthenticated Ollama server to the internet. Put it behind a private network
+or authenticated gateway. The SQLite disk is persistent but not encrypted; use platform disk
+encryption and backups for real customer documents.
 
 Original files, extracted text and metadata are stored in the local SQLite database.
 It is not encrypted. Password-based accounts and server-side sessions isolate each user's documents and chats. Host/origin checks

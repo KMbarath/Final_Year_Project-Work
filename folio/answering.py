@@ -30,6 +30,13 @@ def answer(question, hits, model="", url="http://127.0.0.1:11434", history=None)
                 "sources": [{**hits[i - 1], "source_number": i} for i in sorted(set(ids))], "mode": "generated",
                 "note": "Source references are validated; factual entailment still requires review."}
     query = set(tokens(question))
+    structured = next((h for h in hits if h.get("kind") == "structured_facts"), None)
+    if structured and query & set(tokens(structured["text"])):
+        facts = structured["text"].removeprefix("Structured extracted facts. ")
+        candidates = [fact.strip() for fact in facts.split(";") if query & set(tokens(fact))]
+        if candidates:
+            return {"answer": "; ".join(candidates) + ". [1]",
+                    "sources": [{**structured, "source_number": 1}], "mode": "structured_extract"}
     excerpts = []
     for number, hit in enumerate(hits, 1):
         sentences = re.split(r"(?<=[.!?])\s+|\n+", hit["text"])

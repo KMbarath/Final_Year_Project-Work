@@ -6,7 +6,7 @@ import numpy as np
 from .model_cache import cached_model_path
 
 STOP = set("the a an is are was were my me i what when where does do of to in on for and please tell show document documents".split())
-ALIASES = {"expire": "expiry", "expires": "expiry", "expiration": "expiry", "born": "birth", "dob": "birth"}
+ALIASES = {"expire": "expiry", "expires": "expiry", "expiration": "expiry", "born": "birth", "dob": "birth", "no": "number"}
 
 
 def tokens(text):
@@ -17,12 +17,21 @@ def chunk_pages(document, size=240, overlap=40):
     if size <= overlap or overlap < 0:
         raise ValueError("Chunk size must exceed nonnegative overlap.")
     chunks = []
+    facts = []
+    for entity in document.get("entities", []):
+        value = entity.get("normalized") or entity.get("text")
+        if value:
+            facts.append(f"{entity['label'].replace('_', ' ')}: {value}")
+    if facts:
+        chunks.append({"id": f"{document['id']}:facts", "document_id": document["id"],
+                       "filename": document["filename"], "page": 1,
+                       "text": "Structured extracted facts. " + "; ".join(facts), "kind": "structured_facts"})
     for page in document["pages"]:
         words = page["text"].split()
         for start in range(0, len(words), size - overlap):
             chunks.append({"id": f"{document['id']}:{page['page']}:{start}",
                            "document_id": document["id"], "filename": document["filename"],
-                           "page": page["page"], "text": " ".join(words[start:start + size])})
+                           "page": page["page"], "text": " ".join(words[start:start + size]), "kind": "page_text"})
             if start + size >= len(words):
                 break
     return chunks
@@ -45,6 +54,9 @@ class Retriever:
             idf = math.log(1 + (len(chunks) - frequency + 0.5) / (frequency + 0.5))
             tf = np.array([b[term] for b in bags])
             scores += idf * (tf * 2.5) / (tf + 1.5 * (0.25 + 0.75 * lengths / avg))
+        for i, chunk in enumerate(chunks):
+            if chunk.get("kind") == "structured_facts":
+                scores[i] *= 1.35
         order = [int(i) for i in np.argsort(-scores) if scores[i] > 0]
         fused = {i: 1 / (60 + rank) for rank, i in enumerate(order, 1)}
         semantic = {}

@@ -76,10 +76,11 @@ def create_app(settings=None):
     @app.middleware("http")
     async def security(request:Request,call_next):
         origin=request.headers.get("origin")
-        if origin and origin!=str(request.base_url).rstrip("/"):
+        allowed_origins={str(request.base_url).rstrip("/"),settings.public_url.rstrip("/")}
+        if origin and origin not in allowed_origins:
             return JSONResponse({"detail":"Cross-origin requests are disabled."},status_code=403)
-        if request.url.hostname not in {"127.0.0.1","localhost","::1","testserver"}:
-            return JSONResponse({"detail":"This app is restricted to localhost."},status_code=403)
+        if request.url.hostname not in settings.allowed_hosts and "*" not in settings.allowed_hosts:
+            return JSONResponse({"detail":"Host is not allowed."},status_code=403)
         request.state.user=accounts.authenticate(request.cookies.get(COOKIE))
         public={"/api/status","/api/auth/signup","/api/auth/login","/api/auth/verify"}
         if request.url.path.startswith("/api/") and request.url.path not in public and not request.state.user:
@@ -161,6 +162,9 @@ def create_app(settings=None):
             "classifier_ready":settings.classifier_path.exists(),
             "retrieval":"BGE/FAISS + BM25" if settings.embedding_model else "BM25",
             "embedding_model":settings.embedding_model or None,"answers":settings.ollama_model or "source excerpts",
+            "structured_extraction":settings.extraction_model or "prompt schema + labelled fallback",
+            "prompt_document_types":len(assistant.prompt_extractor.catalog.specs),
+            "extraction_model_error":assistant.prompt_extractor.last_error or None,
             "ocr":settings.ocr_backend,"ocr_installed":bool(shutil.which("tesseract")) if settings.ocr_backend=="tesseract" else bool(importlib.util.find_spec("paddleocr")),
             "entities":settings.entity_model or "labelled fields","whisper_installed":bool(importlib.util.find_spec("whisper")),
             "piper_configured":bool(settings.piper_model),"translation_configured":bool(settings.translation_model),

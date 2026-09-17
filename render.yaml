@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: folio-document-ai
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/status
+    disk:
+      name: folio-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: FOLIO_DATA_DIR
+        value: /data
+      - key: FOLIO_SECURE_COOKIES
+        value: "1"
+      - key: FOLIO_PUBLIC_URL
+        sync: false
+      - key: FOLIO_ALLOWED_HOSTS
+        sync: false
+      - key: FOLIO_OLLAMA_URL
+        sync: false
+      - key: FOLIO_OLLAMA_MODEL
+        sync: false
+      - key: FOLIO_EXTRACTION_MODEL
+        sync: false

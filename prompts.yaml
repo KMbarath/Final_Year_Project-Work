@@ -1,0 +1,3210 @@
+global_rules:
+  system_prompt_prefix: |
+    - Respond with the final answer only.
+    - Avoid loops in reasoning move to the next field immediately if uncertain.
+    - OCR text may include content from multiple document types in one payload. Extract only fields for the requested document type; ignore unrelated document content.
+    - OCR text may include Arabic (العربية) and English, especially for UAE documents such as Emirates ID and Trade License. Read both scripts. Return values exactly as printed; when a field appears in both scripts, populate English/Latin script fields from the English label block and Arabic script fields from the Arabic label block.
+
+  json_schema_title: |
+    STRICT OUTPUT SCHEMA (Don't give other than this json, no explantions)
+
+  logical_score_instruction: |
+    logical_score should be between 0.0 and 1.0. Use simple confidence; avoid overconfidence.
+
+  user_prompt_template: |
+    Extract the values from the {doc_type} OCR text and return only the list of JSON (OUTPUT SCHEMA) as below. If any value is not found, return null.
+
+
+
+aadhaar:
+  system_prompt: |
+
+  user_prompt: |
+    ## Rule for extraction:
+    ### Aadhaar number extraction:
+      - Extract Aadhaar only from the bottom section.
+      - Aadhaar must be a clean standalone 12-digit number may be with space in between. Return the value without space.
+      - DO NOT extract or split digits from the following:
+          - Enrollment ID (28-digit or 14-digit formats)
+          - Virtual ID (16-digit VID)
+          - Any long digit sequences (13+ digits)
+          - Any number with letters, spaces, or special characters inside it
+    ### Address extraction:
+      - Return address without OCR noise,
+      - Return address without father name and relationship type. Like "S/O, D/O, W/O, etc.,
+
+  normal_schema: |
+    {
+        "name": { "value": null },
+        "aadhaar_no": { "value": null },
+        "father_name": { "value": null },
+        "dob": { "value": null },
+        "gender": { "value": null },
+        "address": { "value": null }
+    }
+
+  logical_schema: |
+    {
+        "name": { "value": null, "logical_score": 0.0 },
+        "aadhaar_no": { "value": null, "logical_score": 0.0 },
+        "father_name": { "value": null, "logical_score": 0.0 },
+        "dob": { "value": null, "logical_score": 0.0 },
+        "gender": { "value": null, "logical_score": 0.0 },
+        "address": { "value": null, "logical_score": 0.0 }
+    }
+
+
+affiliation_certificate:
+  system_prompt: |
+    - institution_name: Full name of the university, college, or higher education institution as stated on the certificate.
+    - institution_type: Type if mentioned (e.g. University, College, Deemed to be University, Institution of National Importance); return null if not stated.
+    - certificate_type: Whether the document is for affiliation, recognition, approval, or similar; return as printed.
+    - certificate_number: Affiliation, recognition, or approval reference/order/certificate number.
+    - ugc_reference_number: UGC letter, order, or file reference number if present.
+    - affiliated_to_university: Parent or affiliating university name if the institution is a college or affiliated institution; return null for standalone universities where not applicable.
+    - address: Address or location of the institution if stated.
+    - state: State where the institution is located, if mentioned.
+    - recognition_date: Date of recognition, affiliation, or approval; use DD/MM/YYYY when day/month/year can be inferred.
+    - valid_from: Effective or validity start date if mentioned; use DD/MM/YYYY when possible.
+    - valid_upto: Validity end date if mentioned; use DD/MM/YYYY when possible.
+    - courses_or_programs: Courses, programmes, or levels of study covered by the affiliation/recognition if listed; return as concise text.
+    - issuing_authority: Competent authority issuing the certificate (e.g. University Grants Commission, UGC); return as printed.
+
+  user_prompt: |
+    Extract details from a UGC Affiliation / Recognition Certificate or similar document establishing educational recognition or affiliation of a university, college, or higher education institution under the University Grants Commission or competent authority framework. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "institution_name": { "value": null },
+      "institution_type": { "value": null },
+      "certificate_type": { "value": null },
+      "certificate_number": { "value": null },
+      "ugc_reference_number": { "value": null },
+      "affiliated_to_university": { "value": null },
+      "address": { "value": null },
+      "state": { "value": null },
+      "recognition_date": { "value": null },
+      "valid_from": { "value": null },
+      "valid_upto": { "value": null },
+      "courses_or_programs": { "value": null },
+      "issuing_authority": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "institution_name": { "value": null, "logical_score": 0.0 },
+      "institution_type": { "value": null, "logical_score": 0.0 },
+      "certificate_type": { "value": null, "logical_score": 0.0 },
+      "certificate_number": { "value": null, "logical_score": 0.0 },
+      "ugc_reference_number": { "value": null, "logical_score": 0.0 },
+      "affiliated_to_university": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "state": { "value": null, "logical_score": 0.0 },
+      "recognition_date": { "value": null, "logical_score": 0.0 },
+      "valid_from": { "value": null, "logical_score": 0.0 },
+      "valid_upto": { "value": null, "logical_score": 0.0 },
+      "courses_or_programs": { "value": null, "logical_score": 0.0 },
+      "issuing_authority": { "value": null, "logical_score": 0.0 }
+    }
+
+
+annexure_r_declaration:
+  system_prompt: |
+    - entity_name: Name of the entity, trust, company, society, association, club, or individual making the declaration as stated on Annexure R.
+    - entity_type: Type of declarant if mentioned (e.g. Trust, Company, Society, Association, Club, Individual); return null if not stated.
+    - declaration_date: Date of the declaration; use DD/MM/YYYY when day/month/year can be inferred.
+    - address: Registered, correspondence, or residential address of the declarant if present.
+    - signatory_name: Name of the person signing the declaration.
+    - designation: Designation or capacity of the signatory if mentioned.
+    - place: Place or city where the declaration is signed, if mentioned.
+
+  user_prompt: |
+    Extract details from Annexure R Declaration. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "entity_name": { "value": null },
+      "entity_type": { "value": null },
+      "declaration_date": { "value": null },
+      "address": { "value": null },
+      "signatory_name": { "value": null },
+      "designation": { "value": null },
+      "place": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "entity_type": { "value": null, "logical_score": 0.0 },
+      "declaration_date": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "signatory_name": { "value": null, "logical_score": 0.0 },
+      "designation": { "value": null, "logical_score": 0.0 },
+      "place": { "value": null, "logical_score": 0.0 }
+    }
+
+
+aoa:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Articles of Association.
+    - company_name is the name of the company.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 }
+    }
+
+
+bank_statement:
+  system_prompt: |
+    - account_holder_address is the customer's personal address, not the bank's operational or branch address, regardless of layout or labels.
+    - statement_generation_date: The date the statement was generated, printed, or downloaded (labels may include "Statement Date", "Generated on", "Printed on", "As on"). Return the date as printed; if only one clear statement date exists, use it here.
+    - from_date: Start date of the statement period (e.g. "From", "Period From", "Statement Period From"). Return as printed.
+    - to_date: End date of the statement period (e.g. "To", "Period To", "Statement Period To", "As on" when it denotes period end). Return as printed.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "account_holder_name": { "value": null },
+      "account_number": { "value": null },
+      "ifsc_code": { "value": null },
+      "account_holder_address": { "value": null },
+      "bank_name": { "value": null },
+      "branch_name": { "value": null },
+      "statement_generation_date": { "value": null },
+      "from_date": { "value": null },
+      "to_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "account_holder_name": { "value": null, "logical_score": 0.0 },
+      "account_number": { "value": null, "logical_score": 0.0 },
+      "ifsc_code": { "value": null, "logical_score": 0.0 },
+      "account_holder_address": { "value": null, "logical_score": 0.0 },
+      "bank_name": { "value": null, "logical_score": 0.0 },
+      "branch_name": { "value": null, "logical_score": 0.0 },
+      "statement_generation_date": { "value": null, "logical_score": 0.0 },
+      "from_date": { "value": null, "logical_score": 0.0 },
+      "to_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+birth_certificate:
+  system_prompt: |
+    You are extracting structured fields from an Indian Birth Certificate used as Date of Birth proof for a minor.
+
+    Fields to extract (return null when not clearly present):
+    - child_name: Full name of the child as printed on the certificate
+    - gender: Gender as printed (e.g. Male, Female, M, F)
+    - date_of_birth: Date of birth; use DD/MM/YYYY when day/month/year can be inferred
+    - place_of_birth: Hospital, city, district, state, or other place of birth details as printed
+    - father_name: Father's full name
+    - mother_name: Mother's full name
+    - address: Permanent or residential address of the child or parents if stated
+    - registration_number: Birth registration or certificate number
+    - registration_date: Date of registration; use DD/MM/YYYY when possible
+    - issuing_authority: Registrar, municipal authority, hospital authority, or other issuing body
+    - other_details: Any other relevant printed details (e.g. hospital name, district, state, form number)
+
+  user_prompt: |
+    Extract details from the Birth Certificate OCR text. Ignore OCR noise and headers/footers that are not field values. Do not invent values. Return null for missing or unreadable fields.
+
+  normal_schema: |
+    {
+      "child_name": { "value": null },
+      "gender": { "value": null },
+      "date_of_birth": { "value": null },
+      "place_of_birth": { "value": null },
+      "father_name": { "value": null },
+      "mother_name": { "value": null },
+      "address": { "value": null },
+      "registration_number": { "value": null },
+      "registration_date": { "value": null },
+      "issuing_authority": { "value": null },
+      "other_details": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "child_name": { "value": null, "logical_score": 0.0 },
+      "gender": { "value": null, "logical_score": 0.0 },
+      "date_of_birth": { "value": null, "logical_score": 0.0 },
+      "place_of_birth": { "value": null, "logical_score": 0.0 },
+      "father_name": { "value": null, "logical_score": 0.0 },
+      "mother_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "registration_date": { "value": null, "logical_score": 0.0 },
+      "issuing_authority": { "value": null, "logical_score": 0.0 },
+      "other_details": { "value": null, "logical_score": 0.0 }
+    }
+
+
+bill:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Bill.
+    - bill_number is the number of the bill.
+    - bill_date is the date of the bill; keep dates in DD/MM/YYYY where possible.
+    - due_date is the date of the due date; keep dates in DD/MM/YYYY where possible.
+    - issuer_name is the name of the issuer.
+    - issuer_address is the address of the issuer. Keep the address as it is. It may be a single line or a multi-line address.
+    - customer_name is the name of the customer.
+    - customer_address is the address of the customer. Keep the address as it is. It may be a single line or a multi-line address.
+    - total_amount is the total amount of the bill.
+    - amount_in_words is the amount of the bill in words.
+    - description is the description of the bill.
+
+  normal_schema: |
+    {
+      "bill_number": { "value": null },
+      "bill_date": { "value": null },
+      "due_date": { "value": null },
+      "issuer_name": { "value": null },
+      "issuer_address": { "value": null },
+      "customer_name": { "value": null },
+      "customer_address": { "value": null },
+      "total_amount": { "value": null },
+      "amount_in_words": { "value": null },
+      "description": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "bill_number": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 },
+      "due_date": { "value": null, "logical_score": 0.0 },
+      "issuer_name": { "value": null, "logical_score": 0.0 },
+      "issuer_address": { "value": null, "logical_score": 0.0 },
+      "customer_name": { "value": null, "logical_score": 0.0 },
+      "customer_address": { "value": null, "logical_score": 0.0 },
+      "total_amount": { "value": null, "logical_score": 0.0 },
+      "amount_in_words": { "value": null, "logical_score": 0.0 },
+      "description": { "value": null, "logical_score": 0.0 }
+    }
+
+
+board_resolution:
+  system_prompt: |
+    Extract details from the Board Resolution. Keep dates in DD/MM/YYYY where possible.
+    - company_name: Company or organization that issued the resolution.
+    - resolution_date: Date the resolution was passed or issued.
+    - mode_of_operation_summary: Extract the separate summary for open_account, operate_account and operate_netbanking. Return one complete sentence for each distinct operation rule. It must be inclusive of all authorized person names, designations, operation type (singly, jointly, any two jointly, severally, etc.), monetary limits or thresholds, conditions and restrictions.
+      - Preserve wording from the document; do not infer rules not stated.
+      - for open_account, return the summary of the authorized persons names and designations who are authorized to open the account. dont include the limits and conditions.
+      - for operate_account, return the summary of the authorized persons names and designations who are authorized to operate the account along with all operation type (singly, jointly, any two jointly, severally, etc.), limits,rules and conditions.
+      - for operate_netbanking, return the summary of the authorized persons names and designations who are authorized to operate the internet banking along with all operation type (singly, jointly, any two jointly, severally, etc.), limits,rules and conditions.
+      - Return null if no instruction exists for that operation type.
+      - Examples:
+        - "Mrs. Priyanka Roy and Mrs. Durga Patil jointly operate the account"
+        - "Mr. Abhishek Singh (Director) singly up to INR 10 Crore"
+        - "Mr. Bhavesh Patel (CFO) jointly with Mr. C. K. Verma (Director) above INR 50 Crore"
+        - "Any two directors jointly for all banking transactions"
+        - "Mr. Manoj Kumar (Director) singly for all banking transactions"
+    - authorized_persons: list of authorized persons who are authorized to open the account, operate the account and operate the netbanking. Extract the authorized person details from the latest letter of authorization or addendum to the board resolution if it was issued after the board resolution was passed. name is the name of the person and designation is the designation of the person.
+    - authorizer_details: Extract the authorizer details from the latest Board Resolution or Letter of Authorization, where the authorizer is the person signing, certifying, or authorizing the document on behalf of the organization, In some cases, an authorized person may also be the authorizer if they are the signatory, extract name, designation, and din_or_membership_number (DIN, ICSI, ICAI, CA, or any other explicitly mentioned membership/registration number).
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "resolution_date": { "value": null },
+      "resolutions": {
+        "open_account": { "mode_of_operation_summary": { "value": null } },
+        "operate_account": { "mode_of_operation_summary": { "value": null } },
+        "operate_netbanking": { "mode_of_operation_summary": { "value": null } }
+      },
+      "authorized_persons": [
+        {
+          "name": { "value": null },
+          "designation": { "value": null }
+        }
+      ],
+      "authorizer_details": [
+        {
+          "name": { "value": null },
+          "designation": { "value": null },
+          "din_or_membership_number": { "value": null }
+        }
+      ]
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "resolution_date": { "value": null, "logical_score": 0.0 },
+      "resolutions": { "open_account": { "mode_of_operation_summary": { "value": null, "logical_score": 0.0 } }, "operate_account": { "mode_of_operation_summary": { "value": null, "logical_score": 0.0 } }, "operate_netbanking": { "mode_of_operation_summary": { "value": null, "logical_score": 0.0 } } },
+      "authorized_persons": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "designation": { "value": null, "logical_score": 0.0 }
+        }
+      ],
+      "authorizer_details": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "designation": { "value": null, "logical_score": 0.0 },
+          "din_or_membership_number": { "value": null, "logical_score": 0.0 }
+        }
+      ]
+    }
+
+
+byelaws:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Byelaws document.
+    entity_name is the name of the association or club, society, etc.,.
+    entity_address is the registered or principal address of association or club, society, etc.,.
+    registration_number is the official registration or incorporation number of association or club, society, etc.,.
+    registration_date is the date of registration; keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "entity_name": { "value": null },
+      "entity_address": { "value": null },
+      "registration_number": { "value": null },
+      "registration_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "entity_address": { "value": null, "logical_score": 0.0 },
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "registration_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+cheque:
+  system_prompt: |
+    INSTRUCTIONS FOR INDIAN BANK CHEQUE:
+    - bank_name: Bank name, usually at top. Return as printed.
+    - branch_name: Branch name or branch address line. Return as printed.
+    - account_holder_name: Name of the account holder (drawer), often bottom-left or above signature line. May appear as "A/c Holder" or near the account details.
+    - account_number: Account number,  in a dedicated line above the micr band. Digits only.
+    - ifsc_code: 11-character IFSC (e.g. HDFC0000111). First 4 letters = bank code, 5th is 0, last 6 = branch code. Return without spaces.
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "account_holder_name": { "value": null },
+      "account_number": { "value": null },
+      "ifsc_code": { "value": null },
+      "bank_name": { "value": null },
+      "branch_name": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "account_holder_name": { "value": null, "logical_score": 0.0 },
+      "account_number": { "value": null, "logical_score": 0.0 },
+      "ifsc_code": { "value": null, "logical_score": 0.0 },
+      "bank_name": { "value": null, "logical_score": 0.0 },
+      "branch_name": { "value": null, "logical_score": 0.0 }
+    }
+
+
+coi:
+  system_prompt: |
+    You are extracting structured fields from an Indian Certificate of Incorporation (COI) issued by the Ministry of Corporate Affairs (MCA) or equivalent incorporation certificate for a company.
+
+    Fields to extract:
+    - company_name: The registered legal name of the company
+    - cin: Corporate Identity/Identification Number (CIN), always 21 characters long.
+    - pan: Permanent Account Number (PAN), if available
+    - tan: Tax Deduction and Collection Account Number (TAN), if available
+    - address: Registered office address of the company
+    - date: Date of incorporation or registration
+
+  user_prompt: |
+    Keep the date in the format of DD/MM/YYYY and keep address without company name.
+
+  normal_schema: |
+    {
+        "company_name": { "value": null },
+        "cin": { "value": null },
+        "pan": { "value": null },
+        "tan": { "value": null },
+        "address": { "value": null },
+        "date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "cin": { "value": null, "logical_score": 0.0 },
+      "pan": { "value": null, "logical_score": 0.0 },
+      "tan": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+drug_controller_license:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Drug Controller / Drug Licensing Authority certificate or license. license_number is the main license or approval number. issued_by is the state or central drug control authority. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "name_of_the_licensee": { "value": null },
+      "premises_address": { "value": null },
+      "license_number": { "value": null },
+      "issued_date": { "value": null },
+      "validity_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "name_of_the_licensee": { "value": null, "logical_score": 0.0 },
+      "premises_address": { "value": null, "logical_score": 0.0 },
+      "license_number": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "validity_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+emirates_id:
+  system_prompt: |
+    - Document is a UAE Emirates ID card. OCR may contain Arabic and English text on the same card.
+    - id_number: UAE Emirates ID number in format 784-YYYY-XXXXXXX-X (15 digits total, usually starts with 784). Return with hyphens as printed; if only digits are visible return cleaned 15-digit form with hyphens restored when possible.
+    - name: Full name in English/Latin script from the Name / الاسم field.
+    - name_arabic: Full name in Arabic script from the Arabic name block; return null if not present.
+    - nationality: Nationality as printed (English preferred when bilingual).
+    - nationality_arabic: Nationality in Arabic if present separately.
+    - dob: Date of birth; keep DD/MM/YYYY when day/month/year can be inferred.
+    - gender: Gender as printed (e.g. M, F, Male, Female, ذكر, أنثى).
+    - issue_date: Card issue date; keep DD/MM/YYYY when possible.
+    - expiry_date: Card expiry date; keep DD/MM/YYYY when possible.
+    - card_number: Card serial / file number if printed separately from the Emirates ID number.
+    - issuing_place: Issuing emirate or authority if mentioned.
+
+  user_prompt: |
+    Extract details from the UAE Emirates ID card. The document may be bilingual (Arabic and English). Do not confuse the Emirates ID number with visa number, passport number, or UID barcode text.
+
+  normal_schema: |
+    {
+      "id_number": { "value": null },
+      "name": { "value": null },
+      "name_arabic": { "value": null },
+      "nationality": { "value": null },
+      "nationality_arabic": { "value": null },
+      "dob": { "value": null },
+      "gender": { "value": null },
+      "issue_date": { "value": null },
+      "expiry_date": { "value": null },
+      "card_number": { "value": null },
+      "issuing_place": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "id_number": { "value": null, "logical_score": 0.0 },
+      "name": { "value": null, "logical_score": 0.0 },
+      "name_arabic": { "value": null, "logical_score": 0.0 },
+      "nationality": { "value": null, "logical_score": 0.0 },
+      "nationality_arabic": { "value": null, "logical_score": 0.0 },
+      "dob": { "value": null, "logical_score": 0.0 },
+      "gender": { "value": null, "logical_score": 0.0 },
+      "issue_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 },
+      "card_number": { "value": null, "logical_score": 0.0 },
+      "issuing_place": { "value": null, "logical_score": 0.0 }
+    }
+
+
+uae_emirates_id:
+  system_prompt: |
+    - Document is a UAE Emirates ID card (use API type uae_emirates_id for Dubai / UAE KYC flows). OCR may contain Arabic and English text on the same card.
+    - id_number: UAE Emirates ID number in format 784-YYYY-XXXXXXX-X (15 digits total, usually starts with 784). Return with hyphens as printed; if only digits are visible return cleaned 15-digit form with hyphens restored when possible.
+    - name: Full name in English/Latin script from the Name / الاسم field.
+    - name_arabic: Full name in Arabic script from the Arabic name block; return null if not present.
+    - nationality: Nationality as printed (English preferred when bilingual).
+    - nationality_arabic: Nationality in Arabic if present separately.
+    - dob: Date of birth; keep DD/MM/YYYY when day/month/year can be inferred.
+    - gender: Gender as printed (e.g. M, F, Male, Female, ذكر, أنثى).
+    - issue_date: Card issue date; keep DD/MM/YYYY when possible.
+    - expiry_date: Card expiry date; keep DD/MM/YYYY when possible.
+    - card_number: Card serial / file number if printed separately from the Emirates ID number.
+    - issuing_place: Issuing emirate or authority if mentioned.
+
+  user_prompt: |
+    Extract details from the UAE Emirates ID card. The document may be bilingual (Arabic and English). Do not confuse the Emirates ID number with visa number, passport number, or UID barcode text.
+
+  normal_schema: |
+    {
+      "id_number": { "value": null },
+      "name": { "value": null },
+      "name_arabic": { "value": null },
+      "nationality": { "value": null },
+      "nationality_arabic": { "value": null },
+      "dob": { "value": null },
+      "gender": { "value": null },
+      "issue_date": { "value": null },
+      "expiry_date": { "value": null },
+      "card_number": { "value": null },
+      "issuing_place": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "id_number": { "value": null, "logical_score": 0.0 },
+      "name": { "value": null, "logical_score": 0.0 },
+      "name_arabic": { "value": null, "logical_score": 0.0 },
+      "nationality": { "value": null, "logical_score": 0.0 },
+      "nationality_arabic": { "value": null, "logical_score": 0.0 },
+      "dob": { "value": null, "logical_score": 0.0 },
+      "gender": { "value": null, "logical_score": 0.0 },
+      "issue_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 },
+      "card_number": { "value": null, "logical_score": 0.0 },
+      "issuing_place": { "value": null, "logical_score": 0.0 }
+    }
+
+
+excise_customs_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Registration Certificate issued by Excise / Customs Department. department may be Excise or Customs. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "entity_name": { "value": null },
+      "department": { "value": null },
+      "address": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "department": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+driving_license:
+  system_prompt: |
+    - license_number: Indian driving licence number that has exactly 15 characters without spaces or hyphens: first 2 letters followed by 13 digits. Return only one cleaned value.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "name": { "value": null },
+      "license_number": { "value": null },
+      "dob": { "value": null },
+      "father_name": { "value": null },
+      "address": { "value": null },
+      "valid_till": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "name": { "value": null, "logical_score": 0.0 },
+      "license_number": { "value": null, "logical_score": 0.0 },
+      "dob": { "value": null, "logical_score": 0.0 },
+      "father_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "valid_till": { "value": null, "logical_score": 0.0 }
+    }
+
+
+fda_certificate:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the FDA (Food and Drug Administration) certificate. product_or_facility may describe the registered product, facility, or category. issuing_authority is the FDA office or body that issued the certificate. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "certificate_number": { "value": null },
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "date_of_certification": { "value": null },
+      "date_of_expiry": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "certificate_number": { "value": null, "logical_score": 0.0 },
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "date_of_certification": { "value": null, "logical_score": 0.0 },
+      "date_of_expiry": { "value": null, "logical_score": 0.0 },
+    }
+
+
+factory_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Factory Registration Certificate issued in the name of the entity. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "factory_name": { "value": null },
+      "address": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "factory_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+gst:
+  system_prompt: |
+
+  user_prompt: |
+    Key persons are the directors, proprietor, partners, etc., ignore juridical person superintendent,
+    Constitution of business: Private Limited Company, Public Limited Company, Proprietorship (Sole Proprietorship), Partnership, Limited Liability Partnership, etc.,
+
+  normal_schema: |
+    {
+        "legal_name": { "value": null },
+        "trade_name": { "value": null },
+        "gstin": { "value": null },
+        "address": { "value": null },
+        "key_persons": [
+          {
+            "name": { "value": null },
+            "designation": { "value": null },
+            "resident_state": { "value": null }
+          }
+        ]
+    }
+
+  logical_schema: |
+    {
+        "legal_name": { "value": null, "logical_score": 0.0 },
+        "trade_name": { "value": null, "logical_score": 0.0 },
+        "gstin": { "value": null, "logical_score": 0.0 },
+        "address": { "value": null, "logical_score": 0.0 },
+        "key_persons": [
+          {
+            "name": { "value": null, "logical_score": 0.0 },
+            "designation": { "value": null, "logical_score": 0.0 },
+            "resident_state": { "value": null, "logical_score": 0.0 }
+          }
+        ]
+    }
+
+
+fssai_license:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the FSSAI (Food Safety and Standards Authority of India) license or registration. license_type may be Manufacturer, Distributor, Retailer, etc. registration_number and license_number may both appear; extract each where present. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "business_name": { "value": null },
+      "license_type": { "value": null },
+      "address": { "value": null },
+      "issued_date": { "value": null },
+      "validity_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "business_name": { "value": null, "logical_score": 0.0 },
+      "license_type": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "validity_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+gst_invoice:
+  system_prompt: |
+    INSTRUCTIONS:
+    - OCR text may contain MULTIPLE documents merged in one PDF (invoices, delivery notes, delivery challans, receipts, bills of supply).
+    - Logically separate each document.
+    - Extract data ONLY from invoices.
+    - IGNORE all non-invoice documents.
+    - If multiple invoices exist, extract EACH invoice separately.
+    - NEVER mix fields across invoices.
+    - All invoices must have Seller and Buyer details, Dispatch and Shipping details.
+
+    RULES FOR INVOICE EXTRACTION:
+    - invoiceNumber: Prefer values near "Invoice No". Often contains "/", but simple numbers (e.g., 123, INV01) allowed.
+    - irnNumber: Page 1 first; 64-char alphanumeric; remove spaces/hyphens.
+    - GSTIN (buyer/seller): MUST be 15 chars: 2 digits + 10 alphanum + "Z" + alphanum. Strip "NO-", punctuation. Buyer and seller GST must differ.
+    - invoiceItems: extract the line items from the document.
+
+  user_prompt: |
+
+  normal_schema: |
+    [
+      {
+        "invoiceNumber": "",
+        "pos": "",
+        "irnNumber": "",
+        "dueDate": "",
+        "referenceNo": "",
+        "termsAndCondition": "",
+        "customerNote": "",
+        "createdOnDate": "",
+        "invoiceType": "",
+        "invoiceCategory": "",
+        "sellerDetails": {
+          "gstin": "",
+          "name": "",
+          "address": "",
+          "location": "",
+          "pin": "",
+          "state": ""
+        },
+        "buyerDetails": {
+          "gstin": "",
+          "name": "",
+          "address": "",
+          "location": "",
+          "pin": "",
+          "state": ""
+        },
+        "valueDetails": {
+          "assVal": 0,
+          "cgstVal": 0,
+          "sgstVal": 0,
+          "igstVal": 0,
+          "cesVal": 0,
+          "discount": 0,
+          "totInvVal": 0
+        },
+        "invoiceItems": [
+          {
+            "serialNumber": 0,
+            "productDescription": "",
+            "code": "",
+            "quantity": 0,
+            "unitPrice": 0,
+            "discount": 0,
+            "totalAmount": 0,
+            "gstRate": 0,
+            "cgstAmount": 0,
+            "sgstAmount": 0,
+            "igstAmount": 0,
+            "cesAmount": 0,
+            "totalItemValue": 0
+          }
+        ],
+        "invoiceDispDtls": {
+          "name": "",
+          "address": "",
+          "location": "",
+          "pin": "",
+          "state": ""
+        },
+        "invoiceShipDtls": {
+          "gstin": "",
+          "name": "",
+          "address": "",
+          "location": "",
+          "pin": "",
+          "state": ""
+        },
+        "bankDetails": {
+          "ifsc": "",
+          "accountNumber": ""
+        },
+        "iecDetails": {
+          "iecNumber": ""
+        },
+        "udyamDetails": {
+          "udyamNumber": ""
+        }
+      }
+    ]
+
+  logical_schema: |
+    [
+      {
+        "invoiceNumber": "",
+        "pos": "",
+        "irnNumber": "",
+        "dueDate": "",
+        "referenceNo": "",
+        "termsAndCondition": "",
+        "customerNote": "",
+        "createdOnDate": "",
+        "invoiceType": "",
+        "invoiceCategory": "",
+        "sellerDetails": {
+          "gstin": "",
+          "name": "",
+          "address": "",
+          "location": "",
+          "pin": "",
+          "state": ""
+        },
+        "buyerDetails": {
+          "gstin": "",
+          "name": "",
+          "address": "",
+          "location": "",
+          "pin": "",
+          "state": ""
+        },
+        "valueDetails": {
+          "assVal": 0,
+          "cgstVal": 0,
+          "sgstVal": 0,
+          "igstVal": 0,
+          "cesVal": 0,
+          "discount": 0,
+          "totInvVal": 0
+        },
+        "invoiceItems": [
+          {
+            "serialNumber": 0,
+            "productDescription": "",
+            "code": "",
+            "quantity": 0,
+            "unitPrice": 0,
+            "discount": 0,
+            "totalAmount": 0,
+            "gstRate": 0,
+            "cgstAmount": 0,
+            "sgstAmount": 0,
+            "igstAmount": 0,
+            "cesAmount": 0,
+            "totalItemValue": 0
+          }
+        ],
+        "invoiceDispDtls": {
+          "name": "",
+          "address": "",
+          "location": "",
+          "pin": "",
+          "state": ""
+        },
+        "invoiceShipDtls": {
+          "gstin": "",
+          "name": "",
+          "address": "",
+          "location": "",
+          "pin": "",
+          "state": ""
+        },
+        "bankDetails": {
+          "ifsc": "",
+          "accountNumber": ""
+        },
+        "iecDetails": {
+          "iecNumber": ""
+        },
+        "udyamDetails": {
+          "udyamNumber": ""
+        }
+      }
+    ]
+
+
+gram_panchayat_certificate:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Certificate issued by Gram Panchayat / Block Development Authority. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "entity_name": { "value": null },
+      "address": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+iec_certificate:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the IEC (Import Export Code) certificate issued by DGFT. iec_number is the 10-digit code. issuing_authority is typically DGFT or the concerned regional authority. branch_details may include branch office or RCMC details if present. Keep issue_date in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "iec_number": { "value": null },
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "pan": { "value": null },
+      "issue_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "iec_number": { "value": null, "logical_score": 0.0 },
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "pan": { "value": null, "logical_score": 0.0 },
+      "issue_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+income_tax_certificate:
+  system_prompt: |
+    - entity_name: Name of the Trust, NGO, Society, Association, Club, or other assessee as stated on the certificate or order.
+    - pan: Permanent Account Number of the assessee; return 10-character PAN without spaces.
+    - entity_type: Type of organization if stated (e.g. Trust, NGO, Society, Association, Club); return null if not mentioned.
+    - exemption_section: Income-tax exemption section under which the certificate is issued. Return exactly as printed, e.g. 10AC, 10AD, 12A, 10(23C), or combined references if multiple sections appear.
+    - certificate_number: Certificate, order, or registration reference number (e.g. 12A registration number, order number, DIN/acknowledgement number).
+    - issued_date: Date of issue or date of order; use DD/MM/YYYY when day/month/year can be inferred.
+    - valid_from: Effective or validity start date if mentioned; use DD/MM/YYYY when possible.
+    - valid_upto: Validity end date if mentioned; use DD/MM/YYYY when possible.
+    - address: Registered or correspondence address of the assessee if present on the document.
+
+  user_prompt: |
+    Extract details from an Income Tax exemption certificate or order issued to a Trust, NGO, or Society under Section 10AC, 10AD, 12A, and/or 10(23C) of the Income-tax Act. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "entity_name": { "value": null },
+      "pan": { "value": null },
+      "entity_type": { "value": null },
+      "exemption_section": { "value": null },
+      "certificate_number": { "value": null },
+      "issued_date": { "value": null },
+      "valid_from": { "value": null },
+      "valid_upto": { "value": null },
+      "address": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "pan": { "value": null, "logical_score": 0.0 },
+      "entity_type": { "value": null, "logical_score": 0.0 },
+      "exemption_section": { "value": null, "logical_score": 0.0 },
+      "certificate_number": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "valid_from": { "value": null, "logical_score": 0.0 },
+      "valid_upto": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 }
+    }
+
+
+icai_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the ICAI (Institute of Chartered Accountants of India) registration or license issued in the name of the entity or firm. registration_type may be member, firm, etc. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "member_or_firm_name": { "value": null },
+      "registration_type": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "member_or_firm_name": { "value": null, "logical_score": 0.0 },
+      "registration_type": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+icmai_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the ICMAI (Institute of Cost Accountants of India, formerly ICWAI) registration or license issued in the name of the entity or firm. registration_type may be member, firm, etc. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "member_or_firm_name": { "value": null },
+      "registration_type": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "member_or_firm_name": { "value": null, "logical_score": 0.0 },
+      "registration_type": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+icsi_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the ICSI (Institute of Company Secretaries of India) registration or license issued in the name of the entity or firm. registration_type may be member, firm, etc. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "member_or_firm_name": { "value": null },
+      "registration_type": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "member_or_firm_name": { "value": null, "logical_score": 0.0 },
+      "registration_type": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+invoice:
+  system_prompt: |
+    RULES:
+    - invoice_title: words like "Invoice", "Tax Invoice", "GST Invoice".
+    - invoice_number: Prefer values near "Invoice No". Often contains "/", but simple numbers (e.g., 123, INV01) allowed.
+    - irn: Page 1 first; 64-char alphanumeric; remove spaces/hyphens.
+    - GSTIN (buyer/seller): MUST be 15 chars: 2 digits + 10 alphanum + "Z" + alphanum. Strip "NO-", punctuation. Buyer and seller GST must differ.
+    - PAN (buyer/seller): Not from GSTIN; buyer_pan ≠ seller_pan.
+    - total_amount: derive from amount-in-words → numeric; must match a numeric value in the document.
+    - taxable_amount: total before tax (includes delivery).
+    - tax_amount = CGST+SGST or IGST. CGST = SGST.
+    - Validate: taxable_amount + tax_amount = total_amount.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+        "invoice_title": { "value": null },
+        "invoice_number": { "value": null },
+        "invoice_date": { "value": null },
+        "irn": { "value": null },
+        "irn_acknowledgement_date": { "value": null },
+        "buyer_name": { "value": null },
+        "buyer_gst": { "value": null },
+        "buyer_pan": { "value": null },
+        "seller_name": { "value": null },
+        "seller_gst": { "value": null },
+        "seller_pan": { "value": null },
+        "total_amount": { "value": null },
+        "taxable_amount": { "value": null },
+        "tax_amount": { "value": null },
+        "cgst": { "value": null },
+        "sgst": { "value": null },
+        "igst": { "value": null }
+    }
+
+  logical_schema: |
+    {
+        "invoice_title": { "value": null, "logical_score": 0.0 },
+        "invoice_number": { "value": null, "logical_score": 0.0 },
+        "invoice_date": { "value": null, "logical_score": 0.0 },
+        "irn": { "value": null, "logical_score": 0.0 },
+        "irn_acknowledgement_date": { "value": null, "logical_score": 0.0 },
+        "buyer_name": { "value": null, "logical_score": 0.0 },
+        "buyer_gst": { "value": null, "logical_score": 0.0 },
+        "buyer_pan": { "value": null, "logical_score": 0.0 },
+        "seller_name": { "value": null, "logical_score": 0.0 },
+        "seller_gst": { "value": null, "logical_score": 0.0 },
+        "seller_pan": { "value": null, "logical_score": 0.0 },
+        "total_amount": { "value": null, "logical_score": 0.0 },
+        "taxable_amount": { "value": null, "logical_score": 0.0 },
+        "tax_amount": { "value": null, "logical_score": 0.0 },
+        "cgst": { "value": null, "logical_score": 0.0 },
+        "sgst": { "value": null, "logical_score": 0.0 },
+        "igst": { "value": null, "logical_score": 0.0 }
+    }
+
+
+irdai_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the IRDAI (Insurance Regulatory and Development Authority of India) registration or license issued in the name of the entity or firm. registration_type may be insurer, agent, intermediary, etc. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "entity_name": { "value": null },
+      "registration_type": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "registration_type": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+letter_of_authorization:
+  system_prompt: |
+    - reference_number: Official letter or reference number on the document if shown.
+    - letter_date: Date the letter was issued; keep dates in DD/MM/YYYY where possible.
+    - company_name: Name of the company, firm, association, club, society, trust, etc., or person granting the authorization (issuer).
+    - authorized_persons: list of authorized persons who are authorized to open the account, operate the account and operate the netbanking. Extract the authorized person details from the letter of authorization, extarct authorized person names and their designations.
+    - mode_of_operation_summary: Summary of the authorization related to the account opening, operating and netbanking, etc. It must be inclusive of all authorized person names, designations, operation type (singly, jointly, any two jointly, severally, etc.), monetary limits or thresholds, conditions and restrictions.
+    - validity_until: End date of authorization if stated; otherwise null.
+    - authorizer_details: Extract the authorizer details from the letter of authorization, usually the last page of the letter. name is the name of the person and designation is the designation of the person and din_or_membership_number is the DIN, ICSI, CA, or other membership number of the person.
+
+  user_prompt: |
+    Extract details from the Letter of Authorization (LOA) or similar authorization letter. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "reference_number": { "value": null },
+      "letter_date": { "value": null },
+      "company_name": { "value": null },
+      "authorized_persons": [
+        {
+          "name": { "value": null }
+        }
+      ],
+      "mode_of_operation_summary": { "value": null },
+      "validity_until": { "value": null },
+      "authorizer_details": [
+        {
+          "name": { "value": null },
+          "designation": { "value": null }
+          "din_or_membership_number": { "value": null }
+        }
+      ],
+    }
+
+  logical_schema: |
+    {
+      "reference_number": { "value": null, "logical_score": 0.0 },
+      "letter_date": { "value": null, "logical_score": 0.0 },
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "authorized_persons": [
+        {
+          "name": { "value": null, "logical_score": 0.0 }
+        }
+      ],
+      "purpose_or_scope": { "value": null, "logical_score": 0.0 },
+      "validity_until": { "value": null, "logical_score": 0.0 },
+      "signatory_name": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "designation": { "value": null, "logical_score": 0.0 }
+        }
+      ],
+    }
+
+
+llp_agreement:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the LLP Agreement.
+    - company_name is the name of the LLP.
+    - date is the date of the LLP Agreement; keep dates in DD/MM/YYYY where possible.
+    - partners are individuals named in the LLP Agreement; extract each distinct partner with name and PAN when available. name is the name of the partner and pan is the PAN of the partner.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "date": { "value": null },
+      "partners": [
+        {
+          "name": { "value": null },
+          "pan": { "value": null }
+        }
+      ]
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "date": { "value": null, "logical_score": 0.0 },
+      "partners": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "pan": { "value": null, "logical_score": 0.0 }
+        }
+      ]
+    }
+
+
+moa:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Memorandum of Association.
+    - company_name is the name of the company.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 }
+    }
+
+
+moa_aoa:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Memorandum of Association and Articles of Association.
+    - company_name is the name of the company.
+    - isMOA is true if the Memorandum of Association is present.
+    - isAOA is true if the Articles of Association is present.
+    - isCombined is true if both the Memorandum of Association and Articles of Association are present.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "isMOA": { "value": false },
+      "isAOA": { "value": false },
+      "isCombined": { "value": false }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "isMOA": { "value": false, "logical_score": 0.0 },
+      "isAOA": { "value": false, "logical_score": 0.0 },
+      "isCombined": { "value": false, "logical_score": 0.0 }
+    }
+
+
+name_board:
+  system_prompt: |
+
+  user_prompt: |
+    Extract company name, address and GST number from the name board (signboard / hoarding) OCR text. gst_number should be 15-character GSTIN; strip spaces and punctuation.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "gst_number": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "gst_number": { "value": null, "logical_score": 0.0 }
+    }
+
+
+npr_letter:
+  system_prompt: |
+    - Document may be printed in English and regional language; OCR may create noise for regional language so prefer values from the English part where available.
+    - name: Name of the individual.
+    - npr_number: The NPR enrollment or reference number assigned to the individual.
+    - father_name: Father's name of the individual.
+    - dob: Date of birth of the individual. Keep the date in the format of DD/MM/YYYY.
+    - gender: Gender of the individual.
+    - address: Full residential address as printed on the letter.
+    - letter_date: Date on the NPR letter; keep dates in DD/MM/YYYY where possible.
+
+  user_prompt: |
+    Extract details from the National Population Register (NPR) Letter.
+
+  normal_schema: |
+    {
+      "name": { "value": null },
+      "npr_number": { "value": null },
+      "father_name": { "value": null },
+      "dob": { "value": null },
+      "gender": { "value": null },
+      "address": { "value": null },
+      "letter_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "name": { "value": null, "logical_score": 0.0 },
+      "npr_number": { "value": null, "logical_score": 0.0 },
+      "father_name": { "value": null, "logical_score": 0.0 },
+      "dob": { "value": null, "logical_score": 0.0 },
+      "gender": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "letter_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+nrega:
+  system_prompt: |
+    - job_card_number: Job card number is a unique number assigned to each applicant.
+    - name_of_the_head: Name of the head of household.
+    - date_of_registration: Date of registration of the job card. Keep the date in the format of DD/MM/YYYY.
+    - name: Name of the applicant.
+    - gender: Gender of the applicant.
+    - age: Age of the applicant.
+    - address: Address of the head of household. it is a combination of address, village, district, state and pin code.
+
+  user_prompt: |
+    Extract fields from a NREGA (National Rural Employment Guarantee Act) certificate.
+
+  normal_schema: |
+    {
+      "job_card_number": { "value": null },
+      "name_of_the_head": { "value": null },
+      "date_of_registration": { "value": null },
+      "address": { "value": null },
+      "applicants": [
+        {
+          "name": { "value": null },
+          "gender": { "value": null },
+          "age": { "value": null }
+        }
+      ]
+    }
+
+  logical_schema: |
+    {
+      "job_card_number": { "value": null, "logical_score": 0.0 },
+      "name_of_the_head": { "value": null, "logical_score": 0.0 },
+      "date_of_registration": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "applicants": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "gender": { "value": null, "logical_score": 0.0 },
+          "age": { "value": null, "logical_score": 0.0 }
+        }
+      ]
+    }
+
+
+noc:
+  system_prompt: |
+    - Document may be titled No Objection Certificate (NOC), No Dues Certificate, No Due Certificate, Clearance Certificate, or similar.
+    - beneficiary_name: The person or organization in whose favor the certificate is issued (applicant, member, borrower, tenant, account holder, etc.). Use the main named party, not the issuer.
+    - issuer_name: The bank, housing society, lender, employer, government office, landlord, or other authority that issued the certificate.
+    - reference_number: Official file, serial, or reference number if shown.loan account number is not a reference number.
+    - issue_date: Date of issue as printed on the document.
+    - subject_or_purpose: Short description of what the NOC or clearance relates to (e.g. transfer, loan closure, membership exit) if stated.
+    - validity_until: End date of validity if explicitly stated; otherwise null.
+
+  user_prompt: |
+    Extract fields from a No Objection Certificate or No Due / clearance-style certificate. Distinguish issuer from beneficiary.
+
+  normal_schema: |
+    {
+      "reference_number": { "value": null },
+      "issue_date": { "value": null },
+      "issuer_name": { "value": null },
+      "beneficiary_name": { "value": null },
+      "subject_or_purpose": { "value": null },
+      "validity_until": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "reference_number": { "value": null, "logical_score": 0.0 },
+      "issue_date": { "value": null, "logical_score": 0.0 },
+      "issuer_name": { "value": null, "logical_score": 0.0 },
+      "beneficiary_name": { "value": null, "logical_score": 0.0 },
+      "subject_or_purpose": { "value": null, "logical_score": 0.0 },
+      "validity_until": { "value": null, "logical_score": 0.0 }
+    }
+
+
+pbgrgy_job_card:
+  system_prompt: |
+    - job_card_number: Job card number is a unique number assigned to each household under PBGRGY.
+    - name_of_the_head: Name of the head of household.
+    - date_of_registration: Date of registration of the job card. Keep the date in the format of DD/MM/YYYY.
+    - name: Name of the applicant.
+    - gender: Gender of the applicant.
+    - age: Age of the applicant.
+    - address: Address of the head of household; may include village, district, state, and pin code.
+
+  user_prompt: |
+    Extract fields from a Pujya Bapu Gramin Rozgar Guarantee Yojana (PBGRGY) Job Card.
+
+  normal_schema: |
+    {
+      "job_card_number": { "value": null },
+      "name_of_the_head": { "value": null },
+      "date_of_registration": { "value": null },
+      "address": { "value": null },
+      "applicants": [
+        {
+          "name": { "value": null },
+          "gender": { "value": null },
+          "age": { "value": null }
+        }
+      ]
+    }
+
+  logical_schema: |
+    {
+      "job_card_number": { "value": null, "logical_score": 0.0 },
+      "name_of_the_head": { "value": null, "logical_score": 0.0 },
+      "date_of_registration": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "applicants": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "gender": { "value": null, "logical_score": 0.0 },
+          "age": { "value": null, "logical_score": 0.0 }
+        }
+      ]
+    }
+
+
+pan:
+  system_prompt: |
+    Extract fields from a Permanent Account Number (PAN) card. The document may be an individual PAN or a company/non-individual PAN (company, firm, trust, HUF, association, etc.).
+
+    - name: Extract the cardholder name for Individual PAN cards or the registered entity name for Company/Firm/Trust/HUF/Association PAN cards
+    - pan_no: 10-character Permanent Account Number (5 letters, 4 digits, 1 letter). Return uppercase without spaces.
+    - father_name: Extract only for Individual PAN cards when present, Never merge name and father_name into a single value, Return null if no father name is present or for Non-Individual PAN cards.
+    - date: Date printed on the PAN card (e.g. date of birth for individuals; date of incorporation or date of issue for companies). Keep dates in DD/MM/YYYY where possible.
+      example individual PAN layout, like this we have multiple format for PAN card:
+        INCOME TAX DEPARTMENT
+                        GOVT.OF.INDIA
+        LOHITH KUMAR A    - name
+         ARUMUGAM          - father_name
+           Permanent Account Number
+         AOQPL6521H        - pan_no
+          04/11/1986        - date
+
+  user_prompt: |
+    Extract details from the PAN card. Ignore the noise in the document and recognize the name, PAN number, father name and date of birth.
+
+  normal_schema: |
+    {
+        "name": { "value": null },
+        "pan_no": { "value": null },
+        "father_name": { "value": null },
+        "date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+        "name": { "value": null, "logical_score": 0.0 },
+        "pan_no": { "value": null, "logical_score": 0.0 },
+        "father_name": { "value": null, "logical_score": 0.0 },
+        "date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+association_deed:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Association Deed.
+    - entity_name is the name of the association, club, society, or similar entity.
+    - entity_address is the registered or principal address.
+    - deed_date is the date of the association deed; keep dates in DD/MM/YYYY where possible.
+    - members are individuals named in the deed; extract each distinct member with name and PAN when available. name is the name of the member and pan is the PAN of the member.
+
+  normal_schema: |
+    {
+      "entity_name": { "value": null },
+      "entity_address": { "value": null },
+      "deed_date": { "value": null },
+      "members": [
+        {
+          "name": { "value": null },
+          "pan": { "value": null }
+        }
+      ]
+    }
+
+  logical_schema: |
+    {
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "entity_address": { "value": null, "logical_score": 0.0 },
+      "deed_date": { "value": null, "logical_score": 0.0 },
+      "members": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "pan": { "value": null, "logical_score": 0.0 }
+        }
+      ]
+    }
+
+
+partnership_deed:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Partnership Deed.
+    - company_name is the name of the partnership firm.
+    - partners are individuals named in the partnership deed; extract each distinct partner with name and PAN when available. name is the name of the partner and pan is the PAN of the partner.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "partners": [
+        {
+          "name": { "value": null },
+          "pan": { "value": null }
+        }
+      ]
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "partners": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "pan": { "value": null, "logical_score": 0.0 }
+        }
+      ]
+    }
+
+
+trust_deed:
+  system_prompt: |
+    - trust_name: name of the trust.
+    - deed_date: date of the trust deed. keep the date in the format of DD/MM/YYYY.
+    - settlors: extract the name and address of the settlors, return null if not found.
+    - trustees: extract the name and address of the trustees, it may be mentioned as board of trustees, return null if not found.
+
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "trust_name": { "value": null },
+      "deed_date": { "value": null },
+      "settlors": [
+        {
+          "name": { "value": null },
+          "address": { "value": null }
+        }
+      ],
+      "trustees": [
+        {
+          "name": { "value": null },
+          "address": { "value": null }
+        }
+      ]
+    }
+
+  logical_schema: |
+    {
+      "trust_name": { "value": null, "logical_score": 0.0 },
+      "deed_date": { "value": null, "logical_score": 0.0 },
+      "settlors": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "address": { "value": null, "logical_score": 0.0 }
+        }
+      ],
+      "trustees": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "pan": { "value": null, "logical_score": 0.0 }
+        }
+      ]
+    }
+
+
+trust_resolution:
+  system_prompt: |
+    Extract details from the Trust Resolution. Keep dates in DD/MM/YYYY where possible.
+    - trust_name: Name of the trust that issued the resolution.
+    - resolution_date: Date the trust resolution was issued; keep dates in DD/MM/YYYY where possible.
+    - mode_of_operation_summary: Summary of the resolution related to the account opening, operating and netbanking, etc. It must be inclusive of all authorized person names, operation type (singly, jointly, any two jointly, severally, etc.), monetary limits or thresholds, conditions and restrictions.
+      - Return one complete sentence for each distinct operation rule and each sentense must include all authorized signatory names and their designations when available, operation type (singly, jointly, any two jointly, severally, etc.), monetary limits or thresholds, conditions and restrictions.
+      - Preserve wording from the document; do not infer rules not stated.
+      - Return null if no instruction exists for that operation type.
+      - Examples:
+        - "Mrs. Priyanka Roy and Mrs. Durga Patil jointly operate the trust"
+        - "Mr. Abhishek Singh (Director) singly up to INR 10 Crore"
+        - "Mr. Bhavesh Patel (CFO) jointly with Mr. C. K. Verma (Director) above INR 50 Crore"
+        - "Any two trustees jointly for all trust transactions"
+        - "Mr. Manoj Kumar (Director) singly for all trust transactions"
+    - authorized_persons: list of authorized persons who are authorized to open the account, operate the account and operate the netbanking. Extract the authorized person details from the latest letter of authorization or addendum to the board resolution if it was issued after the board resolution was passed. name is the name of the person and designation is the designation of the person.
+    - authorizer_name: Name of the authorizer as mentioned in the Trust Resolution. name is the name of the authorizer and designation is the designation of the authorizer.
+
+  user_prompt: |
+
+
+  normal_schema: |
+    {
+      "trust_name": { "value": null },
+      "resolution_date": { "value": null },
+      "mode_of_operation_summary": { "value": null },
+      "authorized_persons": [
+        {
+          "name": { "value": null }
+        }
+      ],
+      "authorizer_name": [
+        {
+          "name": { "value": null },
+          "designation": { "value": null }
+        }
+      ],
+    }
+
+  logical_schema: |
+    {
+      "trust_name": { "value": null, "logical_score": 0.0 },
+      "resolution_date": { "value": null, "logical_score": 0.0 },
+      "mode_of_operation_summary": { "value": null, "logical_score": 0.0 },
+      "authorized_persons": [
+        {
+          "name": { "value": null, "logical_score": 0.0 }
+        }
+      ],
+      "authorizer_name": [
+        {
+          "name": { "value": null, "logical_score": 0.0 },
+          "designation": { "value": null, "logical_score": 0.0 }
+        }
+      ],
+    }
+
+
+passport:
+  system_prompt: |
+    - order of the fields in the document is nationality, passport number, surname, given name, dob, gender, date of issue, date of expiry,father_name, mother_name, spouse_name, address.
+    - full_name: return given name + surname. It will be in the first part of the document.
+    - keep the date format as it appears.
+    - don't consider place of birth and place of issue for address.
+    - father_name, mother_name, spouse_name: it will be in the second page above the address.
+    - father_name: name of father/ legal guardian.
+    - mother_name: name of mother
+    - spouse_name: name of spouse.
+    - file_number: file number will be printed in the last page of the document.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "full_name": { "value": null },
+      "passport_number": { "value": null },
+      "dob": { "value": null },
+      "father_name": { "value": null },
+      "mother_name": { "value": null },
+      "spouse_name": { "value": null },
+      "nationality": { "value": null },
+      "gender": { "value": null },
+      "address": { "value": null },
+      "issue_date": { "value": null },
+      "expiry_date": { "value": null },
+      "file_number": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "full_name": { "value": null, "logical_score": 0.0 },
+      "passport_number": { "value": null, "logical_score": 0.0 },
+      "dob": { "value": null, "logical_score": 0.0 },
+      "father_name": { "value": null, "logical_score": 0.0 },
+      "mother_name": { "value": null, "logical_score": 0.0 },
+      "spouse_name": { "value": null, "logical_score": 0.0 },
+      "nationality": { "value": null, "logical_score": 0.0 },
+      "gender": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issue_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 },
+      "file_number": { "value": null, "logical_score": 0.0 }
+    }
+
+
+power_of_attorney:
+  system_prompt: |
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "date": { "value": null },
+      "authorized_persons": [
+        {
+          "name": { "value": null }
+        }
+      ]
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "date": { "value": null, "logical_score": 0.0 },
+      "authorized_persons": [
+        {
+          "name": { "value": null, "logical_score": 0.0 }
+        }
+      ]
+    }
+
+
+professional_tax_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Professional Tax Registration Certificate. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "employer_name": { "value": null },
+      "address": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "employer_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+property_tax:
+  system_prompt: |
+    Extract the details from the property tax receipt.
+    - name: name of the person or entity. property tax receipt is issued in the name of the person or entity.
+    - date: date of the receipt. keep the date in the format of DD/MM/YYYY.
+    - address: address of the property. keep the address as it is. it may be a single line or a multi-line address.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "name": { "value": null },
+      "date": { "value": null },
+      "address": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "name": { "value": null, "logical_score": 0.0 },
+      "date": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 }
+    }
+
+
+registration_certificate:
+  system_prompt: |
+    - entity_name: Name of the entity.
+    - address: Address of the entity. Keep the address as it is. It may be a single line or a multi-line address.
+    - registration_number: Registration number is a unique number assigned to each registration. It may be a number or a letter or a combination of numbers and letters. It may be a single line or a multi-line number.
+    - issued_date: Date of issuance of the registration certificate. Keep the date in the format of DD/MM/YYYY. If not mentioned, return null.
+    - expiry_date: Date of expiry of the registration certificate. Keep the date in the format of DD/MM/YYYY. If not mentioned, return null.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "entity_name": { "value": null },
+      "address": { "value": null },
+      "registration_number": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+sebi_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the SEBI (Securities and Exchange Board of India) registration or license issued in the name of the entity or firm. registration_type may be broker, RIA, RTA, etc. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "entity_name": { "value": null },
+      "registration_type": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "registration_type": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+ssi_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Permanent Small Scale Industries (SSI) Registration Certificate. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "enterprise_name": { "value": null },
+      "address": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "enterprise_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+shop_establishment_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Shop and Establishment Registration Certificate. establishment_type may be shop, commercial establishment, etc. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "establishment_name": { "value": null },
+      "address": { "value": null },
+      "establishment_type": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "establishment_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "establishment_type": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+shop_establishment_intimation:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Shop and Establishment Intimation Receipt with Contact Point Verification. contact_point_verified may be true/false or a verification detail. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "intimation_number": { "value": null },
+      "establishment_name": { "value": null },
+      "address": { "value": null },
+      "contact_point_verified": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "intimation_number": { "value": null, "logical_score": 0.0 },
+      "establishment_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "contact_point_verified": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+trademark_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Trademark Registration Certificate. class_of_goods_services is the class number(s) under which the trademark is registered. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "trademark_number": { "value": null },
+      "trademark_name": { "value": null },
+      "class_of_goods_services": { "value": null },
+      "proprietor_name": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "trademark_number": { "value": null, "logical_score": 0.0 },
+      "trademark_name": { "value": null, "logical_score": 0.0 },
+      "class_of_goods_services": { "value": null, "logical_score": 0.0 },
+      "proprietor_name": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+trade_license:
+  system_prompt: |
+    - Document may be a UAE Trade License, Commercial License, or DED / local emirate business registration certificate with Arabic and English text.
+    - license_number: Primary trade / commercial license number issued by the licensing authority.
+    - registration_number: Commercial registration or company registration number if printed separately from the license number.
+    - entity_name: Licensed business / trade name in English/Latin script.
+    - entity_name_arabic: Licensed business / trade name in Arabic script if present.
+    - legal_form: Legal form such as LLC, Sole Establishment, Civil Company, Branch, etc.
+    - issuing_authority: Issuing body such as Dubai DED, Abu Dhabi DED, Sharjah Economic Development Department, etc.
+    - emirate: UAE emirate of issuance if identifiable.
+    - address: Registered business address as printed.
+    - business_activities: Licensed activities / business activity description; return concise text.
+    - owner_name: Owner, partner, or manager name if printed.
+    - Keep dates in DD/MM/YYYY where possible.
+
+  user_prompt: |
+    Extract details from the UAE Trade License or Commercial Registration / Trade License issued by a local emirate government or licensing authority. Prefer English label values when bilingual; capture Arabic trade name separately when present.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "license_number": { "value": null },
+      "entity_name": { "value": null },
+      "entity_name_arabic": { "value": null },
+      "legal_form": { "value": null },
+      "issuing_authority": { "value": null },
+      "emirate": { "value": null },
+      "address": { "value": null },
+      "business_activities": { "value": null },
+      "owner_name": { "value": null },
+      "license_type": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "license_number": { "value": null, "logical_score": 0.0 },
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "entity_name_arabic": { "value": null, "logical_score": 0.0 },
+      "legal_form": { "value": null, "logical_score": 0.0 },
+      "issuing_authority": { "value": null, "logical_score": 0.0 },
+      "emirate": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "business_activities": { "value": null, "logical_score": 0.0 },
+      "owner_name": { "value": null, "logical_score": 0.0 },
+      "license_type": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+uae_trade_license:
+  system_prompt: |
+    - Document may be a UAE Trade License, Commercial License, or DED / local emirate business registration certificate with Arabic and English text (use API type uae_trade_license for Dubai / UAE KYC flows).
+    - license_number: Primary trade / commercial license number issued by the licensing authority.
+    - registration_number: Commercial registration or company registration number if printed separately from the license number.
+    - entity_name: Licensed business / trade name in English/Latin script.
+    - entity_name_arabic: Licensed business / trade name in Arabic script. CRITICAL rules:
+      * Must contain Arabic Unicode characters (ا-ي). Never return Latin garbage (e.g. PpEJyx, alaAj, wajs).
+      * Find the Arabic name on the same row or nearest row to "Company Name" / entity_name (right column on bilingual licenses).
+      * It is usually a short name (1–6 words), NOT a long activity paragraph.
+      * Do NOT use: license headers, activity lists, address lines, field labels alone (e.g. "مسإ"), or remarks.
+      * If English entity_name contains "DOREIN", look for Arabic with "نيرود" or similar transliteration.
+      * If valid Arabic company name text exists in OCR, do not return null.
+    - legal_form: Legal form such as LLC, Sole Establishment, Civil Company, Branch, Free Zone Entity, etc.
+    - issuing_authority: Issuing body such as Dubai DED, Abu Dhabi DED, Ajman Free Zone, DMCC, JAFZA, etc.
+    - emirate: UAE emirate or free zone of issuance if identifiable.
+    - address: Registered business address as printed.
+    - business_activities: Licensed activities / business activity description; return concise text.
+    - owner_name: Owner, partner, or manager name if printed.
+    - Keep dates in DD/MM/YYYY where possible.
+
+  user_prompt: |
+    Extract details from the UAE Trade License or Commercial Registration issued by a local emirate government, DED, or free zone authority. Prefer English label values when bilingual. For entity_name_arabic, return the Arabic company/trade name only — search OCR text aligned with the Company Name row; ignore Latin OCR noise and long Arabic activity descriptions.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "license_number": { "value": null },
+      "entity_name": { "value": null },
+      "entity_name_arabic": { "value": null },
+      "legal_form": { "value": null },
+      "issuing_authority": { "value": null },
+      "emirate": { "value": null },
+      "address": { "value": null },
+      "business_activities": { "value": null },
+      "owner_name": { "value": null },
+      "license_type": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "license_number": { "value": null, "logical_score": 0.0 },
+      "entity_name": { "value": null, "logical_score": 0.0 },
+      "entity_name_arabic": { "value": null, "logical_score": 0.0 },
+      "legal_form": { "value": null, "logical_score": 0.0 },
+      "issuing_authority": { "value": null, "logical_score": 0.0 },
+      "emirate": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "business_activities": { "value": null, "logical_score": 0.0 },
+      "owner_name": { "value": null, "logical_score": 0.0 },
+      "license_type": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+rental_lease_agreement:
+  system_prompt: |
+    Extract details from the Rental/Lease Agreement. Keep dates in DD/MM/YYYY where possible.
+    - tenant_name is the name of the tenant, it may be a individual name or a company name.
+    - agreement_date is the date of the agreement; keep dates in DD/MM/YYYY where possible.
+    - property_address is the address of the property. Keep the address as it is. It may be a single line or a multi-line address.
+    - lease_period is the expiry date of the lease/rental period; keep dates in DD/MM/YYYY where possible.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "tenant_name": { "value": null },
+      "agreement_date": { "value": null },
+      "property_address": { "value": null },
+      "lease_period": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "tenant_name": { "value": null, "logical_score": 0.0 },
+      "agreement_date": { "value": null, "logical_score": 0.0 },
+      "property_address": { "value": null, "logical_score": 0.0 },
+      "lease_period": { "value": null, "logical_score": 0.0 }
+    }
+
+
+rto_permit:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the RTO (Regional Transport Office) permit or vehicle registration certificate. vehicle_details may include make, model, type. rto_name and rto_region are the issuing RTO. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "registration_number": { "value": null },
+      "permit_number": { "value": null },
+      "owner_name": { "value": null },
+      "vehicle_number": { "value": null },
+      "vehicle_details": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null },
+      "rto_name": { "value": null },
+      "rto_region": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "registration_number": { "value": null, "logical_score": 0.0 },
+      "permit_number": { "value": null, "logical_score": 0.0 },
+      "owner_name": { "value": null, "logical_score": 0.0 },
+      "vehicle_number": { "value": null, "logical_score": 0.0 },
+      "vehicle_details": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 },
+      "rto_name": { "value": null, "logical_score": 0.0 },
+      "rto_region": { "value": null, "logical_score": 0.0 }
+    }
+
+
+electricity_bill:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Electricity Bill.
+    - customer_name is the name of the customer or consumer.
+    - customer_address is the billing or service address of the customer.
+    - bill_date is the date of the bill; keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "customer_name": { "value": null },
+      "customer_address": { "value": null },
+      "bill_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "customer_name": { "value": null, "logical_score": 0.0 },
+      "customer_address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+entity_electricity_bill:
+  system_prompt: |
+    You are extracting Entity Address Proof fields from an Electricity Bill issued in the name of a company or business entity (not an individual).
+
+    Fields to extract (return null when not clearly present):
+    - company_name: Legal/trade name of the company or business entity billed as consumer (prefer entity name over any individual contact person).
+    - address: Billing or service address of the entity as printed.
+    - bill_date: Bill / invoice / statement date; use DD/MM/YYYY when day/month/year can be inferred.
+    - utility_provider: Electricity board / DISCOM / power utility name that issued the bill.
+
+  user_prompt: |
+    Extract Entity Address Proof details from the Electricity Bill OCR text. Prefer company/entity consumer name over any person name. Do not invent values. Return null for missing or unreadable fields.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "bill_date": { "value": null },
+      "utility_provider": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 },
+      "utility_provider": { "value": null, "logical_score": 0.0 }
+    }
+
+
+entity_internet_bill:
+  system_prompt: |
+    You are extracting Entity Address Proof fields from an Internet / Broadband Bill issued in the name of a company or business entity (not an individual).
+
+    Fields to extract (return null when not clearly present):
+    - company_name: Legal/trade name of the company or business entity billed as subscriber.
+    - address: Billing or installation address of the entity as printed.
+    - bill_date: Bill / invoice date; use DD/MM/YYYY when day/month/year can be inferred.
+    - utility_provider: ISP / internet service provider name that issued the bill.
+
+  user_prompt: |
+    Extract Entity Address Proof details from the Internet Bill OCR text. Prefer company/entity subscriber name over any person name. Do not invent values. Return null for missing or unreadable fields.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "bill_date": { "value": null },
+      "utility_provider": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 },
+      "utility_provider": { "value": null, "logical_score": 0.0 }
+    }
+
+
+entity_telephone_bill:
+  system_prompt: |
+    You are extracting Entity Address Proof fields from a Telephone (landline/fixed-line) Bill issued in the name of a company or business entity (not an individual).
+
+    Fields to extract (return null when not clearly present):
+    - company_name: Legal/trade name of the company or business entity billed as subscriber.
+    - address: Billing or installation address of the entity as printed.
+    - bill_date: Bill / invoice date; use DD/MM/YYYY when day/month/year can be inferred.
+    - utility_provider: Telecom / telephone service provider name that issued the bill.
+
+  user_prompt: |
+    Extract Entity Address Proof details from the Telephone Bill OCR text. Prefer company/entity subscriber name over any person name. Do not invent values. Return null for missing or unreadable fields.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "bill_date": { "value": null },
+      "utility_provider": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 },
+      "utility_provider": { "value": null, "logical_score": 0.0 }
+    }
+
+
+entity_bank_statement:
+  system_prompt: |
+    You are extracting Entity Address Proof fields from a Bank Statement issued for a company or business entity account (not an individual personal account).
+
+    Fields to extract (return null when not clearly present):
+    - company_name: Legal name of the company or business entity as account holder.
+    - address: Account holder / correspondence address of the entity (not the bank branch address).
+    - bill_date: Statement generation / statement date / as-on date; use DD/MM/YYYY when day/month/year can be inferred.
+    - utility_provider: Bank name that issued the statement (provider of the banking service).
+
+  user_prompt: |
+    Extract Entity Address Proof details from the Bank Statement OCR text. Prefer company/entity account holder name over any individual signer or contact person. Do not invent values. Return null for missing or unreadable fields.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "bill_date": { "value": null },
+      "utility_provider": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 },
+      "utility_provider": { "value": null, "logical_score": 0.0 }
+    }
+
+
+entity_rental_lease_agreement:
+  system_prompt: |
+    You are extracting Entity Address Proof fields from a Rental / Lease Agreement where the tenant/lessee is a company or business entity (not an individual).
+
+    Fields to extract (return null when not clearly present):
+    - company_name: Legal/trade name of the company or business entity as tenant/lessee.
+    - address: Property / premises address leased by the entity.
+    - bill_date: Agreement / execution date; use DD/MM/YYYY when day/month/year can be inferred.
+    - utility_provider: Lessor / landlord / property owner name if printed (optional supporting field).
+
+  user_prompt: |
+    Extract Entity Address Proof details from the Rental/Lease Agreement OCR text. Prefer company/entity tenant name over any individual authorized signatory unless the entity name is absent. Do not invent values. Return null for missing or unreadable fields.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "bill_date": { "value": null },
+      "utility_provider": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 },
+      "utility_provider": { "value": null, "logical_score": 0.0 }
+    }
+
+
+entity_property_tax:
+  system_prompt: |
+    You are extracting Entity Address Proof fields from a Property Tax receipt / bill issued in the name of a company or business entity (not an individual).
+
+    Fields to extract (return null when not clearly present):
+    - company_name: Legal/trade name of the company or business entity as assessee / property owner.
+    - address: Property address as printed on the receipt.
+    - bill_date: Receipt / payment / bill date; use DD/MM/YYYY when day/month/year can be inferred.
+    - utility_provider: Municipal corporation / local body / assessing authority that issued the receipt.
+
+  user_prompt: |
+    Extract Entity Address Proof details from the Property Tax OCR text. Prefer company/entity assessee name over any person name. Do not invent values. Return null for missing or unreadable fields.
+
+  normal_schema: |
+    {
+      "company_name": { "value": null },
+      "address": { "value": null },
+      "bill_date": { "value": null },
+      "utility_provider": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "company_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 },
+      "utility_provider": { "value": null, "logical_score": 0.0 }
+    }
+
+
+gas_bill:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Gas Bill (LPG/piped gas utility bill).
+    - customer_name is the name of the customer or consumer.
+    - customer_address is the billing or delivery address of the customer.
+    - bill_date is the date of the bill; keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "customer_name": { "value": null },
+      "customer_address": { "value": null },
+      "bill_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "customer_name": { "value": null, "logical_score": 0.0 },
+      "customer_address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+internet_bill:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Internet Bill (broadband/fiber/fixed line internet service bill).
+    - customer_name is the name of the customer or subscriber.
+    - customer_address is the billing or installation address of the customer.
+    - bill_date is the date of the bill; keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "customer_name": { "value": null },
+      "customer_address": { "value": null },
+      "bill_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "customer_name": { "value": null, "logical_score": 0.0 },
+      "customer_address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+postpaid_mobile_bill:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Postpaid Mobile Bill.
+    - customer_name is the name of the customer or subscriber.
+    - customer_address is the billing address of the customer.
+    - bill_date is the date of the bill; keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "customer_name": { "value": null },
+      "customer_address": { "value": null },
+      "bill_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "customer_name": { "value": null, "logical_score": 0.0 },
+      "customer_address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+telephone_bill:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Telephone Bill (landline/fixed-line telephone service bill).
+    - customer_name is the name of the customer or subscriber.
+    - customer_address is the billing or installation address of the customer.
+    - bill_date is the date of the bill; keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "customer_name": { "value": null },
+      "customer_address": { "value": null },
+      "bill_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "customer_name": { "value": null, "logical_score": 0.0 },
+      "customer_address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+water_bill:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Water Bill.
+    - customer_name is the name of the customer or consumer.
+    - customer_address is the billing or service address of the customer.
+    - bill_date is the date of the bill; keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "customer_name": { "value": null },
+      "customer_address": { "value": null },
+      "bill_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "customer_name": { "value": null, "logical_score": 0.0 },
+      "customer_address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+utility_bill:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Utility Bill.
+    - customer_name is the name of the customer.
+    - customer_address is the address of the customer.
+    - bill_date is the date of the bill; keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "customer_name": { "value": null },
+      "customer_address": { "value": null },
+      "bill_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "customer_name": { "value": null, "logical_score": 0.0 },
+      "customer_address": { "value": null, "logical_score": 0.0 },
+      "bill_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+udyam_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the Udyam Registration Certificate (URC) issued by the Government. udyam_number is the unique registration number. type_of_enterprise may be Micro, Small, Medium, etc. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "udyam_number": { "value": null },
+      "enterprise_name": { "value": null },
+      "type_of_enterprise": { "value": null },
+      "address": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "udyam_number": { "value": null, "logical_score": 0.0 },
+      "enterprise_name": { "value": null, "logical_score": 0.0 },
+      "type_of_enterprise": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+vat_registration:
+  system_prompt: |
+
+  user_prompt: |
+    Extract details from the VAT Registration Certificate. vat_number and tin_number may both appear; extract each where present. Keep dates in DD/MM/YYYY where possible.
+
+  normal_schema: |
+    {
+      "vat_number": { "value": null },
+      "tin_number": { "value": null },
+      "business_name": { "value": null },
+      "address": { "value": null },
+      "issued_date": { "value": null },
+      "expiry_date": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "vat_number": { "value": null, "logical_score": 0.0 },
+      "tin_number": { "value": null, "logical_score": 0.0 },
+      "business_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 },
+      "issued_date": { "value": null, "logical_score": 0.0 },
+      "expiry_date": { "value": null, "logical_score": 0.0 }
+    }
+
+
+voter_id:
+  system_prompt: |
+    - document may be printed in english and regional language and ocr may create noise for regional language so consider taking values from english part only.
+    - id_number: it will be in the format of 3 letters + 7 digits = 10 characters.
+    - dob: Some times it will partially masked or only year present, in such case return year only. Return the date as it is don't change the format.
+    - gender: it will be near to label such as "Gender" or "Sex" and value will be in the format of "M" or "F",  "Male" or "Female". return the value as it is.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "name": { "value": null },
+      "id_number": { "value": null },
+      "dob": { "value": null },
+      "gender": { "value": null },
+      "father_name": { "value": null },
+      "husband_name": { "value": null },
+      "address": { "value": null }
+    }
+
+  logical_schema: |
+    {
+      "name": { "value": null, "logical_score": 0.0 },
+      "id_number": { "value": null, "logical_score": 0.0 },
+      "dob": { "value": null, "logical_score": 0.0 },
+      "gender": { "value": null, "logical_score": 0.0 },
+      "father_name": { "value": null, "logical_score": 0.0 },
+      "husband_name": { "value": null, "logical_score": 0.0 },
+      "address": { "value": null, "logical_score": 0.0 }
+    }
+
+
+# =============================================================================
+# UAE KYC document prompts — optional variants (append-only; existing keys above
+# are unchanged). Use API type matching each section name when wired in schemas.
+# Prefixed uae_kyc_* sections avoid YAML duplicate-key override of emirates_id,
+# trade_license, passport, etc.
+# =============================================================================
+
+uae_kyc_global_rules:
+  system_prompt_prefix: |
+    You are a UAE KYC document extraction assistant.
+    - Respond with the final answer only.
+    - Avoid loops in reasoning; move to the next field immediately if uncertain.
+    - Return valid JSON only — no markdown, no code fences, no explanation text.
+    - Use camelCase for all JSON keys.
+    - If a field is not visible or not applicable, return null.
+    - Dates: prefer yyyy-MM-dd when the full date is readable; otherwise return the date as printed.
+
+  json_schema_title: |
+    STRICT OUTPUT SCHEMA (return only this JSON shape, no other fields unless listed):
+
+  user_prompt_template: |
+    Extract structured KYC fields from this UAE {doc_type} document image/PDF.
+    Return only the JSON object described below.
+
+trade_license_proprietorship:
+  system_prompt: |
+    Document: UAE Trade / Commercial License for a PROPRIETORSHIP entity.
+    First classify the uploaded file, then extract only when it matches a proprietorship trade license.
+
+    Classification (always fill these three fields first):
+    - isTradeLicense: true only if this is a UAE trade or commercial license from an emirate economic department or free zone authority.
+    - detectedStructure: PROPRIETORSHIP when the license shows a single proprietor/owner; PARTNERSHIP when it lists multiple partners or a partnership firm; UNKNOWN when the structure cannot be determined.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isTradeLicense is false — e.g. "Please upload a valid UAE trade or commercial license."
+      * detectedStructure is PARTNERSHIP — "This trade license is for a partnership. Please upload a proprietorship trade license."
+      * the file is unreadable, blank, or clearly not a trade license.
+
+    Extraction (only when isTradeLicense is true AND detectedStructure is PROPRIETORSHIP AND documentMismatchReason is null):
+    companyName is the licensed legal or trade name on the license.
+    licenseNumber is the main license / commercial registration number.
+    emirates is the UAE emirate or free zone shown on the license (e.g. Dubai, Abu Dhabi, Sharjah, DMCC, JAFZA).
+    proprietor: list each proprietor / owner person shown on the license with their details.
+
+    When documentMismatchReason is set, leave all extraction fields null and proprietor as an empty array.
+
+  user_prompt: |
+    Do not extract PO box-only addresses; prefer the licensed business / office address when shown.
+    Use the JSON key "proprietor" (not partner or partners) for the owner person list.
+    Reject partnership trade licenses explicitly via documentMismatchReason — do not return null extraction without a reason when the license shows partners.
+
+  normal_schema: |
+    {
+      "isTradeLicense": { "value": null },
+      "detectedStructure": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "companyName": { "value": null },
+      "tradeName": { "value": null },
+      "licenseNumber": { "value": null },
+      "issueDate": { "value": null },
+      "expiryDate": { "value": null },
+      "emirates": { "value": null },
+      "address": { "value": null },
+      "licenseAuthority": { "value": null },
+      "proprietor": [
+        {
+          "name": { "value": null },
+          "nationality": { "value": null },
+          "emiratesId": { "value": null },
+          "passportNumber": { "value": null }
+        }
+      ]
+    }
+
+trade_license_partnership:
+  system_prompt: |
+    Document: UAE Trade / Commercial License for a PARTNERSHIP entity.
+    First classify the uploaded file, then extract only when it matches a partnership trade license.
+
+    Classification (always fill these three fields first):
+    - isTradeLicense: true only if this is a UAE trade or commercial license from an emirate economic department or free zone authority.
+    - detectedStructure: PARTNERSHIP when the license lists multiple partners or a partnership firm; PROPRIETORSHIP when it shows a single proprietor/owner only; UNKNOWN when the structure cannot be determined.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isTradeLicense is false — e.g. "Please upload a valid UAE trade or commercial license."
+      * detectedStructure is PROPRIETORSHIP — "This trade license is for a proprietorship. Please upload a partnership trade license."
+      * the file is unreadable, blank, or clearly not a trade license.
+
+    Extraction (only when isTradeLicense is true AND detectedStructure is PARTNERSHIP AND documentMismatchReason is null):
+    companyName is the licensed legal or trade name on the license.
+    licenseNumber is the main license / commercial registration number.
+    emirates is the UAE emirate or free zone shown on the license (e.g. Dubai, Abu Dhabi, Sharjah, DMCC, JAFZA).
+    partner: list each partner shown on the license with their details.
+
+    When documentMismatchReason is set, leave all extraction fields null and partner as an empty array.
+
+  user_prompt: |
+    Do not extract PO box-only addresses; prefer the licensed business / office address when shown.
+    Use the JSON key "partner" (not proprietor or partners) for the partner list.
+    Reject proprietorship trade licenses explicitly via documentMismatchReason — do not return null extraction without a reason when the license shows a single proprietor only.
+
+  normal_schema: |
+    {
+      "isTradeLicense": { "value": null },
+      "detectedStructure": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "companyName": { "value": null },
+      "tradeName": { "value": null },
+      "licenseNumber": { "value": null },
+      "issueDate": { "value": null },
+      "expiryDate": { "value": null },
+      "emirates": { "value": null },
+      "address": { "value": null },
+      "licenseAuthority": { "value": null },
+      "partner": [
+        {
+          "name": { "value": null },
+          "nationality": { "value": null },
+          "emiratesId": { "value": null },
+          "passportNumber": { "value": null },
+          "sharePercentage": { "value": null }
+        }
+      ]
+    }
+
+uae_kyc_trade_license:
+  system_prompt: |
+    Document: UAE Trade / Commercial License issued by an emirate economic department or free zone authority.
+    First classify the uploaded file, then extract only when it is a valid trade license.
+
+    Classification (always fill these three fields first):
+    - isTradeLicense: true only if this is a UAE trade or commercial license from an emirate economic department or free zone authority.
+    - detectedStructure: PROPRIETORSHIP, PARTNERSHIP, or UNKNOWN based on whether the license shows a single proprietor or multiple partners.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when isTradeLicense is false or the file is unreadable.
+
+    Extraction (only when isTradeLicense is true AND documentMismatchReason is null):
+    companyName is the licensed legal or trade name on the license.
+    licenseNumber is the main license / commercial registration number.
+    emirates is the UAE emirate or free zone shown on the license (e.g. Dubai, Abu Dhabi, Sharjah, DMCC, JAFZA).
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+    Do not extract PO box-only addresses; prefer the licensed business / office address when shown.
+
+  normal_schema: |
+    {
+      "isTradeLicense": { "value": null },
+      "detectedStructure": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "companyName": { "value": null },
+      "tradeName": { "value": null },
+      "licenseNumber": { "value": null },
+      "issueDate": { "value": null },
+      "expiryDate": { "value": null },
+      "emirates": { "value": null },
+      "address": { "value": null },
+      "licenseAuthority": { "value": null }
+    }
+
+uae_kyc_partnership_deed:
+  system_prompt: |
+    Document: UAE Partnership Agreement / Partnership Deed for a registered partnership firm.
+    First classify the uploaded file, then extract only when it matches a partnership agreement.
+
+    Classification (always fill these three fields first):
+    - isPartnershipAgreement: true only if this is a UAE partnership agreement, partnership deed, or equivalent registered partnership document.
+    - detectedDocumentType: PARTNERSHIP_AGREEMENT, TRADE_LICENSE, LETTER_OF_AUTHORIZATION, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isPartnershipAgreement is false — e.g. "Please upload a valid UAE partnership agreement or partnership deed."
+      * detectedDocumentType is clearly not PARTNERSHIP_AGREEMENT — explain what was detected instead.
+      * the file is unreadable, blank, or clearly not a partnership agreement.
+
+    Extraction (only when isPartnershipAgreement is true AND documentMismatchReason is null):
+    companyName or firmName is the partnership name stated in the agreement.
+    partners: extract each partner name as a separate entry when listed.
+
+    When documentMismatchReason is set, leave all extraction fields null and partners as an empty array.
+
+  user_prompt: |
+    registrationDate is the date the agreement was signed or registered, if shown.
+    Reject trade licenses and letters of authorization explicitly via documentMismatchReason.
+
+  normal_schema: |
+    {
+      "isPartnershipAgreement": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "companyName": { "value": null },
+      "firmName": { "value": null },
+      "registrationDate": { "value": null },
+      "address": { "value": null },
+      "partners": [
+        {
+          "name": { "value": null }
+        }
+      ]
+    }
+
+partnership_agreement:
+  system_prompt: |
+    Document: UAE Partnership Agreement / Partnership Deed for a registered partnership firm.
+    First classify the uploaded file, then extract only when it matches a partnership agreement.
+
+    Classification (always fill these three fields first):
+    - isPartnershipAgreement: true only if this is a UAE partnership agreement, partnership deed, or equivalent registered partnership document.
+    - detectedDocumentType: PARTNERSHIP_AGREEMENT, TRADE_LICENSE, LETTER_OF_AUTHORIZATION, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isPartnershipAgreement is false — e.g. "Please upload a valid UAE partnership agreement or partnership deed."
+      * detectedDocumentType is clearly not PARTNERSHIP_AGREEMENT — explain what was detected instead.
+      * the file is unreadable, blank, or clearly not a partnership agreement.
+
+    Extraction (only when isPartnershipAgreement is true AND documentMismatchReason is null):
+    companyName or firmName is the partnership name stated in the agreement.
+    partners: extract each partner name as a separate entry when listed.
+
+    When documentMismatchReason is set, leave all extraction fields null and partners as an empty array.
+
+  user_prompt: |
+    registrationDate is the date the agreement was signed or registered, if shown.
+    Reject trade licenses and letters of authorization explicitly via documentMismatchReason.
+
+  normal_schema: |
+    {
+      "isPartnershipAgreement": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "companyName": { "value": null },
+      "firmName": { "value": null },
+      "registrationDate": { "value": null },
+      "address": { "value": null },
+      "partners": [
+        {
+          "name": { "value": null }
+        }
+      ]
+    }
+
+uae_kyc_letter_of_authorization:
+  system_prompt: |
+    Document: Letter of Authorization (LOA) issued by a UAE company where the partners/signatories and the authorized individuals are the same.
+    First classify the uploaded file, then extract only when it matches a letter of authorization.
+
+    Classification (always fill these three fields first):
+    - isLetterOfAuthorization: true only if this is a formal letter of authorization from a UAE company granting authority to named individuals.
+    - detectedDocumentType: LETTER_OF_AUTHORIZATION, PARTNERSHIP_AGREEMENT, TRADE_LICENSE, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isLetterOfAuthorization is false — e.g. "Please upload a valid letter of authorization."
+      * detectedDocumentType is clearly not LETTER_OF_AUTHORIZATION — explain what was detected instead.
+      * the file is unreadable, blank, or clearly not an authorization letter.
+
+    Extraction (only when isLetterOfAuthorization is true AND documentMismatchReason is null):
+    companyName: The issuing company granting the authority.
+    letterDate: The execution or issuance date listed on the document.
+    referenceNumber: The official reference number of the document, if available.
+    authorizedPersons: Array containing strictly the names of the individuals executing and receiving authority under this document. Do not include titles, positions, or numbering.
+
+    When documentMismatchReason is set, leave all extraction fields null and authorizedPersons as an empty array.
+
+  user_prompt: |
+    purposeOrScope: Brief summary of what the authorized individuals are permitted to do (e.g., sign trade licenses, execute agreements, operate bank accounts).
+    Reject partnership deeds and trade licenses explicitly via documentMismatchReason.
+
+  normal_schema: |
+    {
+      "isLetterOfAuthorization": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "companyName": { "value": null },
+      "referenceNumber": { "value": null },
+      "letterDate": { "value": null },
+      "authorizedPersons": [
+        {
+          "name": { "value": null }
+        }
+      ],
+      "purposeOrScope": { "value": null },
+      "validityUntil": { "value": null }
+    }
+
+uae_kyc_emirates_id:
+  system_prompt: |
+    Document: UAE Emirates ID card (front and/or back).
+    First classify the uploaded file, then extract only when it matches an Emirates ID card.
+
+    Classification (always fill these three fields first):
+    - isEmiratesId: true only if this is a UAE Emirates ID card issued by the Federal Authority for Identity, Citizenship, Customs and Port Security.
+    - detectedDocumentType: EMIRATES_ID, PASSPORT, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isEmiratesId is false — e.g. "Please upload a valid UAE Emirates ID card."
+      * detectedDocumentType is PASSPORT — "This document is not an Emirates ID. Please upload the Emirates ID."
+      * the file is unreadable, blank, or clearly not an Emirates ID.
+
+    Extraction (only when isEmiratesId is true AND documentMismatchReason is null):
+    emiratesId is the 15-digit Emirates ID number without spaces.
+    name is the card holder full name in English.
+    nationality, gender, dateOfBirth, expiryDate as printed on the card.
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+    Do not treat a passport or visa page as an Emirates ID — set documentMismatchReason when the upload is not an Emirates ID card.
+
+  normal_schema: |
+    {
+      "isEmiratesId": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "name": { "value": null },
+      "emiratesId": { "value": null },
+      "nationality": { "value": null },
+      "dateOfBirth": { "value": null },
+      "expiryDate": { "value": null },
+      "gender": { "value": null }
+    }
+
+uae_kyc_passport:
+  system_prompt: |
+    Document: Passport identity page (UAE resident or foreign passport used for KYC).
+    First classify the uploaded file, then extract only when it matches a passport identity page.
+
+    Classification (always fill these three fields first):
+    - isPassport: true only if this is a passport identity / biodata page with MRZ or photo zone.
+    - detectedDocumentType: PASSPORT, EMIRATES_ID, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isPassport is false — e.g. "Please upload a valid passport identity page."
+      * detectedDocumentType is EMIRATES_ID — "This document is not a passport. Please upload the passport identity page."
+      * the file is unreadable, blank, or clearly not a passport.
+
+    Extraction (only when isPassport is true AND documentMismatchReason is null):
+    name is the full name from the MRZ or visual zone.
+    passportNumber without spaces.
+    nationality, gender, dateOfBirth, issueDate, expiryDate as printed.
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+    Do not use place of birth or place of issue as the residential address.
+    Do not treat an Emirates ID as a passport — set documentMismatchReason when the upload is not a passport.
+
+  normal_schema: |
+    {
+      "isPassport": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "name": { "value": null },
+      "passportNumber": { "value": null },
+      "nationality": { "value": null },
+      "dateOfBirth": { "value": null },
+      "issueDate": { "value": null },
+      "expiryDate": { "value": null },
+      "gender": { "value": null }
+    }
+
+tenancy_contract:
+  system_prompt: |
+    Document: UAE registered tenancy contract or commercial lease agreement (Ejari or emirate-registered lease).
+    First classify the uploaded file, then extract only when it matches a tenancy contract or lease.
+
+    Classification (always fill these three fields first):
+    - isTenancyContract: true only if this is a UAE registered tenancy contract, commercial lease, or Ejari-style lease agreement.
+    - detectedDocumentType: TENANCY_CONTRACT, UTILITY_BILL, BANK_STATEMENT, FREE_TRADE_LEASE, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isTenancyContract is false — e.g. "Please upload a valid UAE registered tenancy contract or commercial lease."
+      * detectedDocumentType is UTILITY_BILL or BANK_STATEMENT — explain that a tenancy contract is required, not a bill or statement.
+      * the file is unreadable, blank, or clearly not a tenancy contract.
+
+    Extraction (only when isTenancyContract is true AND documentMismatchReason is null):
+    tenantName is the tenant / company named on the contract.
+    landlordName is the landlord or lessor when shown.
+    address is the leased property address in the UAE.
+    contractDate is the start or signing date; expiryDate is the lease end date if stated.
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+    companyName: use tenantName when the tenant is a company.
+    Reject utility bills and bank statements explicitly via documentMismatchReason.
+
+  normal_schema: |
+    {
+      "isTenancyContract": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "name": { "value": null },
+      "companyName": { "value": null },
+      "tenantName": { "value": null },
+      "landlordName": { "value": null },
+      "contractDate": { "value": null },
+      "expiryDate": { "value": null },
+      "billDate": { "value": null },
+      "address": { "value": null },
+      "emirates": { "value": null }
+    }
+
+free_trade_lease:
+  system_prompt: |
+    Document: UAE Free Zone / Free Trade Zone lease agreement or office lease contract.
+    First classify the uploaded file, then extract only when it matches a free zone lease.
+
+    Classification (always fill these three fields first):
+    - isFreeTradeLease: true only if this is a UAE free zone or free trade zone office lease agreement.
+    - detectedDocumentType: FREE_TRADE_LEASE, TENANCY_CONTRACT, UTILITY_BILL, BANK_STATEMENT, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isFreeTradeLease is false — e.g. "Please upload a valid UAE free zone lease agreement."
+      * detectedDocumentType is clearly not FREE_TRADE_LEASE — explain what was detected instead.
+      * the file is unreadable, blank, or clearly not a free zone lease.
+
+    Extraction (only when isFreeTradeLease is true AND documentMismatchReason is null):
+    tenantName or companyName is the licensed entity on the agreement.
+    freeZoneName is the free zone authority (e.g. DMCC, JAFZA, RAKEZ, IFZA).
+    address is the leased office / unit address within the free zone.
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+    contractDate is the agreement start or signing date.
+    Reject utility bills, bank statements, and standard tenancy contracts explicitly via documentMismatchReason when they are not free zone leases.
+
+  normal_schema: |
+    {
+      "isFreeTradeLease": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "name": { "value": null },
+      "companyName": { "value": null },
+      "tenantName": { "value": null },
+      "landlordName": { "value": null },
+      "freeZoneName": { "value": null },
+      "contractDate": { "value": null },
+      "expiryDate": { "value": null },
+      "billDate": { "value": null },
+      "address": { "value": null },
+      "emirates": { "value": null }
+    }
+
+uae_kyc_utility_bill:
+  system_prompt: |
+    Document: UAE utility bill from DEWA, ADDC, SEWA, FEWA, AADC, or similar emirate utility provider.
+    First classify the uploaded file, then extract only when it matches a utility bill.
+
+    Classification (always fill these three fields first):
+    - isUtilityBill: true only if this is a UAE utility bill from DEWA, ADDC, SEWA, FEWA, AADC, or similar provider.
+    - detectedDocumentType: UTILITY_BILL, BANK_STATEMENT, TENANCY_CONTRACT, FREE_TRADE_LEASE, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isUtilityBill is false — e.g. "Please upload a valid UAE utility bill from DEWA, ADDC, SEWA, or similar."
+      * detectedDocumentType is BANK_STATEMENT or TENANCY_CONTRACT — explain that a utility bill is required.
+      * the file is unreadable, blank, or clearly not a utility bill.
+
+    Extraction (only when isUtilityBill is true AND documentMismatchReason is null):
+    Extract ONLY text that is visibly printed on the uploaded bill image or PDF.
+    Do NOT infer, guess, or substitute names from application context or trade license data.
+    companyName is the company or account holder name printed on the bill — required for validation.
+    customerName is optional supplementary account holder text if shown separately from companyName.
+    billDate is the bill issue date or billing period end date — required for recency checks.
+    address is the service / billing address, not the utility company office address.
+    providerName is the utility company (e.g. DEWA, ADDC, SEWA).
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+    Return companyName exactly as the company or account holder name printed on the bill.
+    Reject bank statements and tenancy contracts explicitly via documentMismatchReason.
+
+  normal_schema: |
+    {
+      "isUtilityBill": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "name": { "value": null },
+      "companyName": { "value": null },
+      "customerName": { "value": null },
+      "billDate": { "value": null },
+      "address": { "value": null },
+      "accountNumber": { "value": null },
+      "providerName": { "value": null }
+    }
+
+uae_kyc_bank_statement:
+  system_prompt: |
+    Document: UAE bank statement in the company or individual account holder name.
+    First classify the uploaded file, then extract only when it matches a bank statement.
+
+    Classification (always fill these three fields first):
+    - isBankStatement: true only if this is a UAE bank account statement showing transactions or balances.
+    - detectedDocumentType: BANK_STATEMENT, UTILITY_BILL, TENANCY_CONTRACT, FREE_TRADE_LEASE, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null. Set when:
+      * isBankStatement is false — e.g. "Please upload a valid UAE bank statement."
+      * detectedDocumentType is UTILITY_BILL or TENANCY_CONTRACT — explain that a bank statement is required.
+      * the file is unreadable, blank, or clearly not a bank statement.
+
+    Extraction (only when isBankStatement is true AND documentMismatchReason is null):
+    accountHolderName or companyName is the account holder printed on the statement.
+    statementDate is the statement generation date or statement period end date — required for recency checks.
+    Also populate billDate with the same date when only one clear statement date exists.
+    address is the account holder address on the statement, not the bank branch address.
+    bankName is the UAE bank name (e.g. Emirates NBD, ADCB, FAB, Mashreq).
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+    fromDate and toDate: statement period start and end if both are shown.
+    Reject utility bills and tenancy contracts explicitly via documentMismatchReason.
+
+  normal_schema: |
+    {
+      "isBankStatement": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "name": { "value": null },
+      "accountHolderName": { "value": null },
+      "companyName": { "value": null },
+      "accountNumber": { "value": null },
+      "bankName": { "value": null },
+      "statementDate": { "value": null },
+      "billDate": { "value": null },
+      "fromDate": { "value": null },
+      "toDate": { "value": null },
+      "address": { "value": null }
+    }
+
+address_proof:
+  system_prompt: |
+    Document: UAE proof of address (tenancy contract, utility bill, or bank statement).
+    First classify the uploaded file, then extract only when it is a valid proof-of-address document.
+
+    Classification (always fill these fields first):
+    - isProofOfAddress: true only if this is a tenancy contract, utility bill, or bank statement suitable as UAE proof of address.
+    - detectedDocumentType: UTILITY_BILL, BANK_STATEMENT, TENANCY_CONTRACT, FREE_TRADE_LEASE, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null.
+
+    Extraction (only when isProofOfAddress is true AND documentMismatchReason is null):
+    Extract the account holder / tenant name and complete UAE address.
+    billDate or statementDate when a document date is visible.
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "isProofOfAddress": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "name": { "value": null },
+      "companyName": { "value": null },
+      "billDate": { "value": null },
+      "statementDate": { "value": null },
+      "address": { "value": null }
+    }
+
+identity:
+  system_prompt: |
+    Document: UAE identity document (Emirates ID or Passport).
+    First classify the uploaded file, then extract only when it is a valid identity document.
+
+    Classification (always fill these fields first):
+    - isIdentityDocument: true only if this is an Emirates ID card or passport identity page.
+    - detectedDocumentType: EMIRATES_ID, PASSPORT, OTHER, or UNKNOWN.
+    - documentMismatchReason: a short user-facing English message when the upload must be rejected, otherwise null.
+
+    Extraction (only when isIdentityDocument is true AND documentMismatchReason is null):
+    Extract holder name and primary ID number.
+
+    When documentMismatchReason is set, leave all extraction fields null.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "isIdentityDocument": { "value": null },
+      "detectedDocumentType": { "value": null },
+      "documentMismatchReason": { "value": null },
+      "name": { "value": null },
+      "documentNumber": { "value": null },
+      "nationality": { "value": null },
+      "dateOfBirth": { "value": null },
+      "expiryDate": { "value": null }
+    }
+
+uae_kyc_default:
+  system_prompt: |
+    Document: UAE KYC supporting document.
+    Extract all clearly visible KYC-relevant fields.
+
+  user_prompt: |
+
+  normal_schema: |
+    {
+      "name": { "value": null },
+      "companyName": { "value": null },
+      "documentNumber": { "value": null },
+      "issueDate": { "value": null },
+      "expiryDate": { "value": null },
+      "billDate": { "value": null },
+      "address": { "value": null }
+    }
+
+live_selfie_check:
+  system_prompt: |
+    Task: classify an image uploaded for a KYC live selfie step.
+    isLiveSelfie=true only when the image is a photo of a single person's face suitable for biometric verification
+    (portrait/selfie style, not a flat scan of a card or paper).
+    isIdentityOrOfficialDocument=true when the image shows an Emirates ID, passport, visa, trade license,
+    utility bill, bank statement, tenancy contract, or any other official document (including a photo of a document).
+
+  user_prompt: |
+    Return only the JSON object below. Do not extract document fields.
+
+  normal_schema: |
+    {
+      "isLiveSelfie": { "value": null },
+      "isIdentityOrOfficialDocument": { "value": null },
+      "reason": { "value": null }
+    }

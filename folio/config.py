@@ -14,7 +14,9 @@ class Settings:
     entity_model: str = field(default_factory=lambda: os.getenv("FOLIO_ENTITY_MODEL", ""))
     ocr_backend: str = field(default_factory=lambda: os.getenv("FOLIO_OCR", "tesseract"))
     ollama_model: str = field(default_factory=lambda: os.getenv("FOLIO_OLLAMA_MODEL", ""))
-    ollama_url: str = "http://127.0.0.1:11434"
+    extraction_model: str = field(default_factory=lambda: os.getenv("FOLIO_EXTRACTION_MODEL", os.getenv("FOLIO_OLLAMA_MODEL", "")))
+    ollama_url: str = field(default_factory=lambda: os.getenv("FOLIO_OLLAMA_URL", "http://127.0.0.1:11434"))
+    prompts_path: Path = field(default_factory=lambda: Path(os.getenv("FOLIO_PROMPTS_PATH", str(ROOT / "prompts.yaml"))))
     whisper_model: str = field(default_factory=lambda: os.getenv("FOLIO_WHISPER_MODEL", "base"))
     piper_model: str = field(default_factory=lambda: os.getenv("FOLIO_PIPER_MODEL", ""))
     translation_model: str = field(default_factory=lambda: os.getenv("FOLIO_TRANSLATION_MODEL", ""))
@@ -26,6 +28,8 @@ class Settings:
     smtp_security: str = field(default_factory=lambda: os.getenv("FOLIO_SMTP_SECURITY","starttls"))
     public_url: str = field(default_factory=lambda: os.getenv("FOLIO_PUBLIC_URL","http://127.0.0.1:8000"))
     secure_cookies: bool = field(default_factory=lambda: os.getenv("FOLIO_SECURE_COOKIES","0")=="1")
+    allowed_hosts: tuple[str, ...] = field(default_factory=lambda: tuple(
+        host.strip() for host in os.getenv("FOLIO_ALLOWED_HOSTS", "127.0.0.1,localhost,::1,testserver").split(",") if host.strip()))
     max_upload_bytes: int = 20 * 1024 * 1024
     max_pages: int = 80
 
