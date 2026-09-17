@@ -53,6 +53,28 @@ class Extractor:
             if "\x00" in text:
                 raise ValueError("The file is not a text document.")
             return [{"page": 1, "text": text.strip(), "method": "text"}]
+        if suffix == ".docx":
+            try:
+                import docx
+            except ImportError as exc:
+                raise FeatureUnavailable("Install python-docx to enable DOCX support.") from exc
+            try:
+                document = docx.Document(io.BytesIO(content))
+            except Exception as exc:
+                raise ValueError("Could not read the DOCX document.") from exc
+            text = "\n".join(paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip())
+            return [{"page": 1, "text": text.strip(), "method": "docx"}]
+        if suffix == ".doc":
+            try:
+                import mammoth
+            except ImportError as exc:
+                raise FeatureUnavailable("Install mammoth to enable DOC support.") from exc
+            try:
+                result = mammoth.extract_raw_text(io.BytesIO(content))
+                text = result.value.strip()
+            except Exception as exc:
+                raise ValueError("Could not read the DOC document.") from exc
+            return [{"page": 1, "text": text, "method": "doc"}]
         if suffix == ".pdf":
             pages = []
             with pymupdf.open(stream=content, filetype="pdf") as pdf:
@@ -74,4 +96,4 @@ class Extractor:
         if suffix in {".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff"}:
             with Image.open(io.BytesIO(content)) as image:
                 return [{"page": 1, "text": self.ocr(image), "method": self.backend}]
-        raise ValueError("Supported files: PDF, TXT, MD, PNG, JPG, WEBP and TIFF.")
+        raise ValueError("Supported files: PDF, DOC, DOCX, TXT, MD, PNG, JPG, WEBP and TIFF.")

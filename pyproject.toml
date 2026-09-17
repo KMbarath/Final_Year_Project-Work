@@ -7,7 +7,7 @@ name = "folio-document-assistant"
 version = "0.1.0"
 description = "Local personal document assistant with reproducible model training"
 requires-python = ">=3.10"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "python-multipart>=0.0.18", "pymupdf>=1.24,<2", "pillow>=10", "numpy>=1.26,<3", "scikit-learn>=1.5,<2", "joblib>=1.4", "httpx>=0.27,<1"]
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "python-multipart>=0.0.18", "pymupdf>=1.24,<2", "pillow>=10", "numpy>=1.26,<3", "scikit-learn>=1.5,<2", "joblib>=1.4", "httpx>=0.27,<1", "python-docx>=1.1", "mammoth>=1.8"]
 
 [project.optional-dependencies]
 training = ["torch>=2.6", "transformers>=4.48,<6", "matplotlib>=3.8", "pandas>=2.2", "nbformat>=5.10", "nbclient>=0.10", "ipykernel>=6", "jupyterlab>=4"]

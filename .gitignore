@@ -10,3 +10,4 @@ artifacts/
 .cache/
 *.egg-info/
 docs/
+notebooks/model_training.executed.ipynb
