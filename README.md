@@ -204,9 +204,9 @@ translation is not implemented. Long responses may be truncated by the translati
 The API and mobile-first frontend are one same-origin service, so they deploy together. The
 Docker image includes Tesseract and builds the checked-in synthetic baseline classifier during
 the image build; private databases and local model caches are never copied into the image.
-`render.yaml` describes a Render service with a persistent `/data` disk. Render's Starter
-service is required for a continuously available process and persistent disk; the free tier
-sleeps and cannot provide persistent disk storage.
+`render.yaml` describes a no-cost Render service. The free tier sleeps after inactivity and
+has an ephemeral filesystem, so uploaded documents and SQLite data can be lost after a restart.
+Use a paid persistent disk or an external database/object store for production customer data.
 
 After connecting this repository in Render, set these environment variables before the first deploy:
 
@@ -230,8 +230,8 @@ Deployment steps:
 3. Set `FOLIO_PUBLIC_URL` to the Render HTTPS URL and `FOLIO_ALLOWED_HOSTS` to its hostname only.
 4. Add an SMTP provider's host, port, username, password and sender as Render secret variables if email verification/reminders are required.
 5. Deploy and check `https://your-host.example/api/status`; then create an account and upload a sample document.
-6. Keep the Render persistent disk mounted at `/data`. Do not use the free plan for this service,
-	 because its ephemeral filesystem would lose documents on restart.
+6. The free plan is suitable for demonstrations only. It may sleep and its ephemeral filesystem
+	must not be treated as permanent customer storage.
 
 Do not expose an unauthenticated Ollama server to the internet. Put it behind a private network
 or authenticated gateway. The SQLite disk is persistent but not encrypted; use platform disk

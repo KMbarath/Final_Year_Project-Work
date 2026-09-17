@@ -2,15 +2,11 @@ services:
   - type: web
     name: folio-document-ai
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/status
-    disk:
-      name: folio-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: FOLIO_DATA_DIR
-        value: /data
+        value: /tmp/folio-data
       - key: FOLIO_SECURE_COOKIES
         value: "1"
       - key: FOLIO_PUBLIC_URL
