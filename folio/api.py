@@ -160,7 +160,7 @@ def create_app(settings=None):
     def status():
         return {"mode":"local accounts","authentication":True,"classifier":settings.classifier_backend,
             "classifier_ready":settings.classifier_path.exists(),
-            "retrieval":"BGE/FAISS + BM25" if settings.embedding_model else "BM25",
+            "retrieval":("LSA vectors + BM25" if settings.embedding_model == "lsa" else "BGE/FAISS + BM25") if settings.embedding_model else "BM25",
             "embedding_model":settings.embedding_model or None,"answers":settings.ollama_model or "source excerpts",
             "structured_extraction":settings.extraction_model or "prompt schema + labelled fallback",
             "models_required":settings.require_models,

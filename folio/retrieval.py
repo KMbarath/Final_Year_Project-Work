@@ -60,7 +60,27 @@ class Retriever:
         order = [int(i) for i in np.argsort(-scores) if scores[i] > 0]
         fused = {i: 1 / (60 + rank) for rank, i in enumerate(order, 1)}
         semantic = {}
-        if self.model_name:
+        if self.model_name == "lsa":
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.decomposition import TruncatedSVD
+            from sklearn.preprocessing import normalize
+            key = tuple((c["id"], c["text"]) for c in chunks)
+            if key != self._cache_key:
+                self._vectorizer = TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True)
+                sparse = self._vectorizer.fit_transform([c["text"] for c in chunks])
+                dimensions = min(128, sparse.shape[0] - 1, sparse.shape[1] - 1)
+                self._lsa = TruncatedSVD(dimensions, random_state=42) if dimensions >= 2 else None
+                self._vectors = normalize(self._lsa.fit_transform(sparse) if self._lsa else sparse).astype("float32")
+                self._cache_key = key
+            query_sparse = self._vectorizer.transform([question])
+            query_vector = normalize(self._lsa.transform(query_sparse) if self._lsa else query_sparse).astype("float32")
+            similarities = (self._vectors @ query_vector.T).toarray().ravel() if hasattr(self._vectors @ query_vector.T, "toarray") else np.asarray(self._vectors @ query_vector.T).ravel()
+            for rank, idx in enumerate(np.argsort(-similarities)[:max(k * 3, 20)], 1):
+                similarity = float(similarities[idx])
+                semantic[int(idx)] = similarity
+                if similarity > 0:
+                    fused[int(idx)] = fused.get(int(idx), 0) + 1 / (60 + rank)
+        elif self.model_name:
             import faiss
             from sentence_transformers import SentenceTransformer
             if self._encoder is None:

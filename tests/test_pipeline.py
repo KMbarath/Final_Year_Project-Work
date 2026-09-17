@@ -122,6 +122,8 @@ def test_prompt_catalog_and_structured_facts():
     document={"id":"1","filename":"pan.txt","entities":entities,"pages":[{"page":1,"text":text}]}
     hits=Retriever().search("What is the PAN number?",[document])
     assert hits and hits[0]["kind"] == "structured_facts"
+    semantic = Retriever("lsa").search("PAN identifier", [document])
+    assert semantic and semantic[0]["semantic_score"] is not None
 
 
 def test_split_groups_and_duplicates(tmp_path):
