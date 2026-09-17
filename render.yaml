@@ -21,3 +21,5 @@ services:
         sync: false
       - key: FOLIO_REQUIRE_MODELS
         value: "0"
+      - key: FOLIO_PIPER_MODEL
+        value: /app/artifacts/voices/en_US-lessac-medium.onnx

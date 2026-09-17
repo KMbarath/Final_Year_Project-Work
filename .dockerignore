@@ -3,7 +3,10 @@
 __pycache__
 *.pyc
 data/private
-artifacts
+artifacts/*
+!artifacts/voices/
+!artifacts/voices/en_US-lessac-medium.onnx
+!artifacts/voices/en_US-lessac-medium.onnx.json
 notebooks
 tests
 .DS_Store
