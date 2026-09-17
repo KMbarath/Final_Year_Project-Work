@@ -11,3 +11,17 @@ artifacts/
 *.egg-info/
 docs/
 notebooks/model_training.executed.ipynb
+
+# Generated test reports and coverage output
+test-report.html
+coverage.xml
+htmlcov/
+.coverage
+*.junit.xml
+
+# Temporary test-run files
+test-results/
+test-output/
+pytest-*.log
+*.test.log
+*.pid
