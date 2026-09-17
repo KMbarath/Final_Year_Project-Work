@@ -163,6 +163,7 @@ def create_app(settings=None):
             "retrieval":"BGE/FAISS + BM25" if settings.embedding_model else "BM25",
             "embedding_model":settings.embedding_model or None,"answers":settings.ollama_model or "source excerpts",
             "structured_extraction":settings.extraction_model or "prompt schema + labelled fallback",
+            "models_required":settings.require_models,
             "prompt_document_types":len(assistant.prompt_extractor.catalog.specs),
             "extraction_model_error":assistant.prompt_extractor.last_error or None,
             "ocr":settings.ocr_backend,"ocr_installed":bool(shutil.which("tesseract")) if settings.ocr_backend=="tesseract" else bool(importlib.util.find_spec("paddleocr")),

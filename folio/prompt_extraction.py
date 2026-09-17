@@ -97,8 +97,9 @@ class PromptCatalog:
 
 
 class PromptExtractor:
-    def __init__(self, path: Path, model: str = "", url: str = "http://127.0.0.1:11434"):
+    def __init__(self, path: Path, model: str = "", url: str = "http://127.0.0.1:11434", strict: bool = False):
         self.catalog, self.model, self.url = PromptCatalog(path), model, url.rstrip("/")
+        self.strict = strict
         self.last_error = ""
 
     def extract(self, text: str, classifier_label: str = "") -> tuple[str, list[dict]]:
@@ -112,6 +113,8 @@ class PromptExtractor:
                 self.last_error = ""
             except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
                 self.last_error = str(exc)
+                if self.strict:
+                    raise RuntimeError("Required extraction model failed: " + self.last_error) from exc
                 values = self._labelled(spec, text)
         else:
             values = self._labelled(spec, text)
@@ -125,12 +128,13 @@ class PromptExtractor:
                 continue
             rendered = str(value).strip()
             match = re.search(re.escape(rendered), text, re.I)
-            normalized = parse_date(rendered) if label in {"expiry_date", "date_of_expiry", "dob", "date_of_birth", "issue_date"} else rendered
+            is_date = label in {"expiry_date", "date_of_expiry", "dob", "date_of_birth", "issue_date"}
+            normalized = parse_date(rendered) if is_date else rendered
             entities.append({"label": label, "text": rendered,
                              "start": match.start() if match else -1, "end": match.end() if match else -1,
                              "method": "prompt_ollama" if self.model and not self.last_error else "prompt_labelled_fallback",
                              "score": float(score) if isinstance(score, (int, float)) else None,
-                             "normalized": normalized or rendered})
+                             "normalized": normalized})
         return doc_type, entities
 
     def _ollama(self, spec: PromptSpec, text: str) -> dict:

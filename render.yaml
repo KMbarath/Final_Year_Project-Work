@@ -23,3 +23,5 @@ services:
         sync: false
       - key: FOLIO_EXTRACTION_MODEL
         sync: false
+      - key: FOLIO_REQUIRE_MODELS
+        value: "1"

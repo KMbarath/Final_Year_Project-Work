@@ -22,7 +22,7 @@ class Assistant:
         self.extractor = Extractor(settings.ocr_backend, settings.max_pages)
         self.classifier = Classifier(settings.classifier_path, settings.classifier_backend)
         self.entities = EntityExtractor(settings.entity_model)
-        self.prompt_extractor = PromptExtractor(settings.prompts_path, settings.extraction_model, settings.ollama_url)
+        self.prompt_extractor = PromptExtractor(settings.prompts_path, settings.extraction_model, settings.ollama_url, settings.require_models)
         self.retriever = Retriever(settings.embedding_model)
         self.voice = Voice(settings)
         self.lock = threading.RLock()

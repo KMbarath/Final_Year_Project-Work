@@ -12,8 +12,8 @@ def field_answer(question, documents):
         ("name", r"\bname\b|\bwho is (?:the )?(?:holder|insured|patient|owner)\b"),
         ("expiry_date", r"\b(expir\w*|valid until|valid till|policy end)\b"),
         ("date_of_birth", r"\b(birth|dob|born)\b"),
-        ("issue_date", r"\b(issued|issue date)\b"),
-        ("document_number", r"\b(?:policy|passport|document|registration|invoice|roll)\s+(?:number|no|id)\b"),
+        ("issue_date", r"\b(issue date|date of issue|issued on)\b|\bwhen was .{0,40} issued\b"),
+        ("document_number", r"\b(?:pan|aadhaar|gstin|policy|passport|document|registration|invoice|roll)\s+(?:number|no|id)\b"),
         ("email", r"\bemail\b"), ("phone", r"\b(phone|mobile|telephone)\b"),
         ("amount", r"\b(amount|premium|sum insured|subtotal)\b"),
     ]:

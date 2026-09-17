@@ -28,6 +28,7 @@ class Settings:
     smtp_security: str = field(default_factory=lambda: os.getenv("FOLIO_SMTP_SECURITY","starttls"))
     public_url: str = field(default_factory=lambda: os.getenv("FOLIO_PUBLIC_URL","http://127.0.0.1:8000"))
     secure_cookies: bool = field(default_factory=lambda: os.getenv("FOLIO_SECURE_COOKIES","0")=="1")
+    require_models: bool = field(default_factory=lambda: os.getenv("FOLIO_REQUIRE_MODELS", "0") == "1")
     allowed_hosts: tuple[str, ...] = field(default_factory=lambda: tuple(
         host.strip() for host in os.getenv("FOLIO_ALLOWED_HOSTS", "127.0.0.1,localhost,::1,testserver").split(",") if host.strip()))
     max_upload_bytes: int = 20 * 1024 * 1024
@@ -37,3 +38,5 @@ class Settings:
         if self.smtp_security not in {"starttls","ssl"}:
             raise ValueError("SMTP security must be starttls or ssl.")
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        if self.require_models and (not self.ollama_model or not self.extraction_model or not self.embedding_model):
+            raise ValueError("FOLIO_REQUIRE_MODELS=1 requires answer, extraction, and embedding models.")
