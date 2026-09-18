@@ -51,3 +51,13 @@ def test_google_cloud_translation_uses_api_key(monkeypatch):
 def test_google_cloud_translation_requires_api_key():
     with pytest.raises(FeatureUnavailable, match="GOOGLE_TRANSLATE_API_KEY"):
         Voice(Settings(translation_provider="google-cloud")).translate("Hello", "ta")
+
+
+def test_mymemory_provider_is_free_and_uses_selected_language(monkeypatch):
+    translator = Mock()
+    translator.translate.return_value = "வணக்கம்"
+    factory = Mock(return_value=translator)
+    monkeypatch.setattr("deep_translator.MyMemoryTranslator", factory)
+
+    assert Voice(Settings(translation_provider="mymemory")).translate("Hello", "ta") == "வணக்கம்"
+    factory.assert_called_once_with(source="en-GB", target="ta-IN")

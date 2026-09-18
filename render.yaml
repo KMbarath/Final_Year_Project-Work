@@ -26,6 +26,4 @@ services:
       - key: FOLIO_WHISPER_MODEL
         value: tiny
       - key: FOLIO_TRANSLATION_PROVIDER
-        value: google-cloud
-      - key: GOOGLE_TRANSLATE_API_KEY
-        sync: false
+        value: mymemory

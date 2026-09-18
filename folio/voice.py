@@ -71,6 +71,15 @@ class Voice:
             return text
         if target not in LANGUAGES:
             raise ValueError("Unsupported target language.")
+        if self.settings.translation_provider == "mymemory":
+            try:
+                from deep_translator import MyMemoryTranslator
+            except ImportError as exc:
+                raise FeatureUnavailable("Install the translation dependency to use MyMemory.") from exc
+            try:
+                return MyMemoryTranslator(source="en-GB", target=MYMEMORY_LANGUAGES[target]).translate(text)
+            except Exception as exc:
+                raise FeatureUnavailable("The free MyMemory translation service is temporarily unavailable. Try again later.") from exc
         if self.settings.translation_provider == "google-cloud":
             return self._translate_google_cloud(text, target)
         if self.settings.translation_provider == "google":

@@ -50,8 +50,8 @@ class Settings:
     def prepare(self):
         if self.smtp_security not in {"starttls","ssl"}:
             raise ValueError("SMTP security must be starttls or ssl.")
-        if self.translation_provider not in {"", "google", "google-cloud"}:
-            raise ValueError("FOLIO_TRANSLATION_PROVIDER must be google, google-cloud, or blank.")
+        if self.translation_provider not in {"", "google", "google-cloud", "mymemory"}:
+            raise ValueError("FOLIO_TRANSLATION_PROVIDER must be google, google-cloud, mymemory, or blank.")
         self.data_dir.mkdir(parents=True, exist_ok=True)
         if self.require_models and (not self.ollama_model or not self.extraction_model or not self.embedding_model):
             raise ValueError("FOLIO_REQUIRE_MODELS=1 requires answer, extraction, and embedding models.")
