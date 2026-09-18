@@ -25,6 +25,9 @@ async function enterWorkspace(user){
   $("search-mode").textContent=status.embedding_model?"Hybrid":"Indexed";
   $("search-caption").textContent=status.embedding_model?"Semantic + keyword retrieval":"Keyword retrieval with sources";
   $("language").disabled=!status.translation_configured;
+  $("language").title=status.translation_configured
+    ?"Translated answers use the configured "+status.translation_provider+" provider."
+    :"Translation has not been configured on this server.";
   updateEmailNotice();
   await refresh();await loadHistory();
   if(reminderTimer)clearInterval(reminderTimer);

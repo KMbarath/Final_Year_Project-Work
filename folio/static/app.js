@@ -1,6 +1,6 @@
 "use strict";
 const $=id=>document.getElementById(id);
-let docs=[],activeDoc=null,status={},recorder=null,audioChunks=[];
+let docs=[],activeDoc=null,status={},recorder=null,audioChunks=[],activeCategory="";
 const titles={library:"Document library",chat:"Ask your documents",reminders:"Reminders",training:"Model lab"};
 async function api(path,options={}) {
   let r;
@@ -19,18 +19,22 @@ function toast(text){$("toast").textContent=text;$("toast").hidden=false;clearTi
 function view(name){document.querySelectorAll(".view").forEach(v=>v.hidden=v.id!==name);document.querySelectorAll(".nav").forEach(b=>b.classList.toggle("active",b.dataset.view===name));$("breadcrumb").textContent=titles[name];if(name==="reminders")loadReminders();if(name==="training")loadTraining();}
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>view(b.dataset.view));
 function renderDocs(){
- const query=$("filter").value.toLowerCase(),shown=docs.filter(d=>(d.filename+" "+d.classification.label).toLowerCase().includes(query));
+ const query=$("filter").value.toLowerCase(),shown=docs.filter(d=>(!activeCategory||d.vault_category===activeCategory)&&(d.filename+" "+d.classification.label+" "+(d.vault_category||"")).toLowerCase().includes(query));
  $("documents").replaceChildren();$("empty").hidden=docs.length>0;
- shown.forEach(d=>{const card=node("button",undefined,"document-card");card.append(node("div","▤","file-icon"),node("span",d.classification.label,"tag"),node("h3",d.filename),node("small",d.pages.length+" page(s) · "+new Date(d.created_at).toLocaleDateString()));const foot=node("div",undefined,"card-footer");foot.append(node("span",d.expiry_date?(d.expiry_confirmed?"Expires ":"Review: ")+d.expiry_date:"Details extracted"),node("span","↗"));card.append(foot);card.onclick=()=>openDoc(d.id);$("documents").append(card);});
+ shown.forEach(d=>{const card=node("button",undefined,"document-card");card.append(node("div","▤","file-icon"),node("span",(d.vault_category||d.classification.label).replaceAll("_"," "),"tag"),node("h3",d.filename),node("small",d.pages.length+" page(s) · "+new Date(d.created_at).toLocaleDateString()));const foot=node("div",undefined,"card-footer");foot.append(node("span",d.expiry_date?(d.expiry_confirmed?"Expires ":"Review: ")+d.expiry_date:"Details extracted"),node("span","↗"));card.append(foot);card.onclick=()=>openDoc(d.id);$("documents").append(card);});
  if(docs.length&&!shown.length)$("documents").append(node("p","No documents match.","no-items"));
  ["doc-count","nav-count","library-count"].forEach(id=>$(id).textContent=docs.length);
+ if($("library-heading"))$("library-heading").firstChild.textContent=activeCategory?((activeCategory==="driving_licence"?"Driving licence":activeCategory[0].toUpperCase()+activeCategory.slice(1))+" documents "):"Document library ";
  const previous=$("scope").value;$("scope").replaceChildren(new Option("All documents",""));docs.forEach(d=>$("scope").add(new Option(d.filename,d.id)));if(docs.some(d=>d.id===previous))$("scope").value=previous;
 }
 const accessibilityStyle=document.createElement("style");accessibilityStyle.textContent=".dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:28px}.dashboard-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px}.dashboard-card h2{margin-top:0}.dashboard-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.dashboard-row p{margin:0;flex:1;font-size:12px}.dashboard-row small{margin-left:auto;color:var(--muted);font-size:10px}.dashboard-row strong{text-transform:capitalize;font-size:12px}.accessibility-controls{display:flex;gap:8px}.large-text{font-size:17px}.large-text .nav,.large-text .document-card,.large-text .bubble{font-size:15px}.high-contrast{--paper:#fff;--ink:#000;--muted:#222;--green:#005a3c;--line:#333;--mint:#d8f1e5}.high-contrast button,.high-contrast input,.high-contrast select{border-color:#111}@media(max-width:720px){.dashboard-grid{grid-template-columns:1fr}.accessibility-controls{display:none}}";document.head.append(accessibilityStyle);
+accessibilityStyle.textContent+=".vault-folders{margin:24px 0}.vault-folders h2{margin-bottom:10px}.category-nav{display:flex;flex-wrap:wrap;gap:9px}.category-chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;color:var(--ink);font-size:11px}.category-chip b{margin-left:6px;color:var(--muted)}.category-chip.active{border-color:var(--green);background:var(--mint);color:var(--green)}.category-chip.active b{color:inherit}";
 function formatBytes(bytes){if(bytes<1024)return bytes+" B";if(bytes<1024*1024)return (bytes/1024).toFixed(1)+" KB";return (bytes/(1024*1024)).toFixed(1)+" MB";}
 async function loadDashboard(){const owner=accountUser?.id;const data=await api("/dashboard");if(accountUser?.id!==owner)return;$("search-mode").textContent=formatBytes(data.storage_bytes);$("search-caption").textContent="Private storage used";const recommendations=$("recommendations"),activity=$("activity");recommendations.replaceChildren();activity.replaceChildren();if(!data.recommendations.length)recommendations.append(node("p","No renewal actions are needed.","no-items"));data.recommendations.forEach(item=>{const row=node("div",undefined,"dashboard-row");row.append(node("p",item.message));const open=node("button","View document","text-button");open.onclick=()=>openDoc(item.document_id);row.append(open);recommendations.append(row);});if(!data.recent_activity.length)activity.append(node("p","Your account activity will appear here.","no-items"));data.recent_activity.forEach(item=>{const row=node("div",undefined,"dashboard-row");row.append(node("strong",item.event.replaceAll("_"," ")),node("small",new Date(item.created_at).toLocaleString()));activity.append(row);});}
-async function refresh(){const owner=accountUser?.id;const loaded=await api("/documents");if(accountUser?.id!==owner)return;docs=loaded;renderDocs();await loadReminders();}
+function renderCategories(){const counts={};docs.forEach(d=>{const category=d.vault_category||"other";counts[category]=(counts[category]||0)+1;});$("cat-all").textContent=docs.length;for(const category of ["aadhaar","passport","driving_licence","pan","other"]){const count=$("cat-"+category);if(count)count.textContent=counts[category]||0;}document.querySelectorAll(".category-chip").forEach(button=>{const selected=button.dataset.category===activeCategory;button.classList.toggle("active",selected);button.setAttribute("aria-pressed",String(selected));});}
+async function refresh(){const owner=accountUser?.id;const loaded=await api("/documents");if(accountUser?.id!==owner)return;docs=loaded;renderCategories();renderDocs();await loadReminders();}
 $("filter").oninput=renderDocs;$("demo-help").onclick=()=>$("demo-path").hidden=!$("demo-path").hidden;
+document.querySelectorAll(".category-chip").forEach(button=>button.onclick=()=>{activeCategory=button.dataset.category;renderCategories();renderDocs();});
 const accessibilityControls=document.createElement("div");accessibilityControls.className="accessibility-controls";const textSize=node("button","A+","text-button"),contrast=node("button","High contrast","text-button");textSize.type=contrast.type="button";textSize.onclick=()=>{document.body.classList.toggle("large-text");localStorage.setItem("folio-large-text",document.body.classList.contains("large-text")?"1":"0");};contrast.onclick=()=>{document.body.classList.toggle("high-contrast");localStorage.setItem("folio-high-contrast",document.body.classList.contains("high-contrast")?"1":"0");};accessibilityControls.append(textSize,contrast);document.querySelector(".account-menu").prepend(accessibilityControls);if(localStorage.getItem("folio-large-text")==="1")document.body.classList.add("large-text");if(localStorage.getItem("folio-high-contrast")==="1")document.body.classList.add("high-contrast");
 $("upload").accept += ",.doc,.docx";
 async function upload(files){
@@ -44,9 +48,10 @@ $("dropzone").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();
 ["dragleave","drop"].forEach(n=>$("dropzone").addEventListener(n,e=>{e.preventDefault();$("dropzone").classList.remove("drag");}));
 $("dropzone").addEventListener("drop",e=>upload(Array.from(e.dataTransfer.files)));
 function openDoc(id){
- const d=docs.find(d=>d.id===id);if(!d)return;activeDoc=d;$("detail-title").textContent=d.filename;$("detail-content").replaceChildren(node("p","Suggested type: "+d.classification.label+" · "+Math.round(d.classification.confidence*100)+"% model score"));
+ const d=docs.find(d=>d.id===id);if(!d)return;activeDoc=d;$("detail-title").textContent=d.filename;$("detail-content").replaceChildren(node("p","Vault category: "+(d.vault_category||"other").replaceAll("_"," ")+" · Suggested type: "+d.classification.label+" · "+Math.round(d.classification.confidence*100)+"% model score"));
  for(const e of d.entities){const row=node("div",undefined,"entity");row.append(node("span",e.label.replaceAll("_"," ")),node("strong",e.text));$("detail-content").append(row);}
  const download=node("a","Download original document","text-button");download.href="/api/documents/"+d.id+"/download";$("detail-content").append(download);
+ const reprocess=node("button","Reprocess text","text-button");reprocess.type="button";reprocess.onclick=async()=>{reprocess.disabled=true;try{await api("/documents/"+d.id+"/reprocess",{method:"POST"});await refresh();openDoc(d.id);toast("Text and fields were reprocessed.");}catch(e){toast(e.message);}finally{reprocess.disabled=false;}};$("detail-content").append(reprocess);
  if(!d.entities.length)$("detail-content").append(node("p","No labelled fields detected. You can still search the text."));
  $("expiry-date").value=d.expiry_date||"";$("detail-text").textContent=d.pages.map(p=>"PAGE "+p.page+" · "+p.method+"\n"+p.text).join("\n\n");if(!$("detail").open)$("detail").showModal();
 }
@@ -64,9 +69,22 @@ $("chat-form").onsubmit=async e=>{
  }catch(e){pending.textContent=e.message;$("question").value=accountUser?.id===requestOwner?question:"";$("sources").replaceChildren(node("p","No answer was received. Retry your question once the connection is restored."));}finally{$("send").disabled=false;$("messages").scrollTop=$("messages").scrollHeight;}
 };
 document.querySelectorAll("[data-question]").forEach(b=>b.onclick=()=>{$("question").value=b.dataset.question;$("chat-form").requestSubmit();});
+const speechLocales={en:"en-IN",hi:"hi-IN",ta:"ta-IN",te:"te-IN",ml:"ml-IN",kn:"kn-IN",bn:"bn-IN",mr:"mr-IN",gu:"gu-IN",pa:"pa-IN",or:"or-IN"};
+let browserRecognition=null;
+function resetVoiceButton(){browserRecognition=null;$("record").classList.remove("recording");$("record").disabled=false;}
+function startBrowserSpeech(Recognition){
+ browserRecognition=new Recognition();browserRecognition.lang=speechLocales[$("language").value]||"en-IN";browserRecognition.interimResults=true;browserRecognition.continuous=false;let finalText="";
+ browserRecognition.onresult=e=>{let interim="";for(let i=e.resultIndex;i<e.results.length;i++){const text=e.results[i][0].transcript;if(e.results[i].isFinal)finalText+=text;else interim+=text;$("question").value=(finalText||interim).trim();$("voice-status").textContent=finalText?"Check the transcription, then press Ask.":"Listening…";}};
+ browserRecognition.onerror=e=>{if(e.error!=="aborted")toast("Voice input failed: "+e.error);};
+ browserRecognition.onend=()=>{if(finalText)$("voice-status").textContent="Check the transcription, then press Ask.";else if($("voice-status").textContent==="Listening…")$("voice-status").textContent="No speech was recognised. Try again.";resetVoiceButton();};
+ browserRecognition.start();$("record").classList.add("recording");$("voice-status").textContent="Listening… press again to stop.";
+}
 $("record").onclick=async()=>{
+ if(browserRecognition){browserRecognition.stop();return;}
+ const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(Recognition){try{startBrowserSpeech(Recognition);return;}catch(e){toast("Voice input could not start: "+e.message);return;}}
  if(recorder&&recorder.state==="recording"){recorder.stop();return;}
- if(!status.whisper_installed){toast("Install the voice extra and FFmpeg to enable Whisper.");return;}
+ if(!status.whisper_installed){toast("This browser does not provide speech recognition, and server transcription is unavailable.");return;}
  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});audioChunks=[];recorder=new MediaRecorder(stream);recorder.ondataavailable=e=>audioChunks.push(e.data);
  recorder.onstop=async()=>{clearTimeout(recorder.timer);stream.getTracks().forEach(t=>t.stop());$("record").classList.remove("recording");$("record").disabled=true;$("voice-status").textContent="Transcribing…";const mime=recorder.mimeType,ext=mime.includes("ogg")?"ogg":mime.includes("mp4")?"m4a":"webm",form=new FormData();form.append("file",new Blob(audioChunks,{type:mime}),"question."+ext);try{const result=await api("/transcribe",{method:"POST",body:form});$("question").value=result.text;$("voice-status").textContent="Check the transcription, then press Ask.";}catch(e){$("voice-status").textContent=e.message;}finally{$("record").disabled=false;}};
  recorder.start();recorder.timer=setTimeout(()=>{if(recorder.state==="recording")recorder.stop();},60000);$("record").classList.add("recording");$("voice-status").textContent="Recording… press again to stop (maximum 60 seconds).";

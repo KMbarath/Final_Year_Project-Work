@@ -11,6 +11,9 @@ from .extraction import FeatureUnavailable
 LANGUAGES = {"hi": "hin_Deva", "ta": "tam_Taml", "te": "tel_Telu", "ml": "mal_Mlym",
              "kn": "kan_Knda", "bn": "ben_Beng", "mr": "mar_Deva", "gu": "guj_Gujr",
              "pa": "pan_Guru", "or": "ory_Orya"}
+MYMEMORY_LANGUAGES = {"hi": "hi-IN", "ta": "ta-IN", "te": "te-IN", "ml": "ml-IN",
+                      "kn": "kn-IN", "bn": "bn-IN", "mr": "mr-IN", "gu": "gu-IN",
+                      "pa": "pa-IN", "or": "or-IN"}
 
 
 class Voice:
@@ -67,8 +70,24 @@ class Voice:
             return text
         if target not in LANGUAGES:
             raise ValueError("Unsupported target language.")
+        if self.settings.translation_provider == "google":
+            try:
+                from deep_translator import GoogleTranslator, MyMemoryTranslator
+            except ImportError as exc:
+                raise FeatureUnavailable("Install the translation dependency to use the configured provider.") from exc
+            # This provider performs the NLP translation remotely.  Do not hide
+            # the boundary: the UI tells the user before they select a language.
+            try:
+                return GoogleTranslator(source="en", target=target).translate(text)
+            except Exception as google_error:
+                # The free Google endpoint can rate-limit. MyMemory supports the
+                # same Indian-language targets and keeps language selection usable.
+                try:
+                    return MyMemoryTranslator(source="en-GB", target=MYMEMORY_LANGUAGES[target]).translate(text)
+                except Exception as fallback_error:
+                    raise FeatureUnavailable("Translation services are temporarily unavailable. Try again later.") from fallback_error
         if not self.settings.translation_model:
-            raise FeatureUnavailable("Configure FOLIO_TRANSLATION_MODEL with an IndicTrans2 model.")
+            raise FeatureUnavailable("Configure a translation provider or an IndicTrans2 model.")
         try:
             import torch
             from transformers import AutoTokenizer, AutoModelForSeq2SeqLM

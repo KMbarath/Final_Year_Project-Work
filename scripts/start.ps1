@@ -1,6 +1,13 @@
 param([switch]$Transformer, [ValidateRange(1,65535)][int]$Port = 8000, [switch]$Background, [switch]$CheckOnly)
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
+# Some local development shells inject a dead loopback proxy.  It prevents the
+# explicitly configured translation provider from reaching its HTTPS endpoint.
+foreach ($proxyVariable in 'HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy') {
+    if ((Get-Item "Env:$proxyVariable" -ErrorAction SilentlyContinue).Value -match '^https?://127\.0\.0\.1:9/?$') {
+        Remove-Item "Env:$proxyVariable" -ErrorAction SilentlyContinue
+    }
+}
 $env:HF_HOME = Join-Path (Get-Location) '.cache/huggingface'
 $pythonCandidates = @((Join-Path (Get-Location) '.venv/Scripts/python.exe'), (Get-Command python -ErrorAction SilentlyContinue).Source)
 $venvConfig = Join-Path (Get-Location) '.venv/pyvenv.cfg'

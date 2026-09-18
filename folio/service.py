@@ -12,6 +12,7 @@ from .voice import Voice
 from .facts import field_answer, is_feedback
 from .overview import is_greeting, is_overview, overview
 from .prompt_extraction import PromptExtractor
+from .categories import categorize
 
 
 class Assistant:
@@ -35,21 +36,35 @@ class Assistant:
             existing = self.store.by_digest(digest,owner_id)
             if existing:
                 return {**existing, "duplicate": True}
-            pages = self.extractor.extract(content, filename)
-            text = "\n".join(p["text"] for p in pages)
-            if len(text.strip()) < 5:
-                raise ValueError("No readable text was found. Try a clearer scan.")
-            classification = self.classifier.predict(text)
-            entities = self.entities.extract(text)
-            document_type, prompt_entities = self.prompt_extractor.extract(text, classification.get("label", ""))
-            existing = {(e["label"], str(e.get("normalized", "")).lower()) for e in entities}
-            entities.extend(e for e in prompt_entities if (e["label"], str(e.get("normalized", "")).lower()) not in existing)
-            dates = {e["normalized"] for e in entities if e["label"] == "expiry_date" and e["normalized"]}
-            expiry = next(iter(dates)) if len(dates)==1 else None
+            analysis = self._analyse(content, filename)
             return self.store.add({"id": uuid.uuid4().hex, "filename": PureWindowsPath(filename).name[:200],
-                                   "owner_id": owner_id, "digest": digest, "content": content, "pages": pages, "entities": entities, "expiry_date": expiry,
-                                   "document_type": document_type or classification.get("label", "unknown"),
-                                   "classification": classification})
+                                   "owner_id": owner_id, "digest": digest, "content": content, **analysis})
+
+    def _analyse(self, content, filename):
+        pages = self.extractor.extract(content, filename)
+        text = "\n".join(p["text"] for p in pages)
+        if len(text.strip()) < 5:
+            raise ValueError("No readable text was found. Try a clearer scan.")
+        classification = self.classifier.predict(text)
+        entities = self.entities.extract(text)
+        document_type, prompt_entities = self.prompt_extractor.extract(text, classification.get("label", ""))
+        existing = {(e["label"], str(e.get("normalized", "")).lower()) for e in entities}
+        entities.extend(e for e in prompt_entities if (e["label"], str(e.get("normalized", "")).lower()) not in existing)
+        dates = {e["normalized"] for e in entities if e["label"] == "expiry_date" and e["normalized"]}
+        return {"pages": pages, "entities": entities, "expiry_date": next(iter(dates)) if len(dates)==1 else None,
+                "document_type": document_type or classification.get("label", "unknown"),
+                "vault_category": categorize(text, document_type, classification.get("label", "")),
+                "classification": classification}
+
+    def reprocess(self, document_id, owner_id):
+        with self.lock:
+            document = self.store.get(document_id, owner_id)
+            if document is None or document["owner_id"] != owner_id:
+                raise ValueError("Document not found.")
+            content = self.store.original(document_id, owner_id)
+            if content is None:
+                raise ValueError("Original document is not available for reprocessing.")
+            return self.store.replace_analysis(document_id, self._analyse(content, document["filename"]), owner_id)
 
     def ask(self, question, document_id=None, language="en", owner_id=None, history=None):
         if is_greeting(question):

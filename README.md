@@ -153,7 +153,9 @@ An 8B model will not fit entirely into the RTX 2050's 4 GB VRAM; CPU offloading 
 enough system RAM and will be slower. Generation uses deterministic settings, untrusted
 context boundaries and validated source IDs. Source validation does not prove entailment.
 
-Enable voice (the voice extra includes a bundled FFmpeg decoder):
+On a hosted Render deployment, voice input now uses the browser's SpeechRecognition API first. It needs no Whisper model, FFmpeg, or server audio processing and works in supported browsers such as Chrome and Edge after microphone permission is granted. The browser may send audio to its own speech-recognition service. Browsers without SpeechRecognition automatically use the server-side Whisper fallback.
+
+Enable the optional Whisper fallback (the voice extra includes a bundled FFmpeg decoder):
 
 ~~~powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[voice]"
@@ -265,3 +267,12 @@ Automatic expiry detection, website reminders, login/signup, per-user chat histo
 SMTP email delivery are implemented. See [configuration and test status](docs/ACCOUNTS_AND_NOTIFICATIONS.md).
 Gmail delivery still requires a locally entered App Password and email verification.
 Use scripts/start-gmail.ps1 to supply credentials without saving them in project files.
+
+
+
+## Open PowerShell in the project folder and run:
+.\scripts\start.ps1 -Background
+Then open:
+http://127.0.0.1:8000
+## To stop the background server later:
+Get-Content .\artifacts\server\server-8000.pid | ForEach-Object { Stop-Process -Id $_ -Force }

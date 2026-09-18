@@ -72,3 +72,9 @@ def test_META_011_multiple_dates():
 def test_META_012_multiple_names():
     entities = extract("Name: Jane Doe\nName: John Doe")
     assert values(entities, "name") == ["Jane Doe", "John Doe"]
+
+
+def test_META_013_card_identifier_and_pan_date_without_colon_labels():
+    entities = extract("INCOME TAX DEPARTMENT\nPermanent Account Number ABCDE1234F\n12/03/1995")
+    assert values(entities, "document_number") == ["ABCDE1234F"]
+    assert values(entities, "date_of_birth") == ["1995-03-12"]

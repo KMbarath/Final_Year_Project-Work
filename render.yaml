@@ -25,3 +25,5 @@ services:
         value: /app/artifacts/voices/en_US-lessac-medium.onnx
       - key: FOLIO_WHISPER_MODEL
         value: tiny
+      - key: FOLIO_TRANSLATION_PROVIDER
+        value: google

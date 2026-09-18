@@ -17,6 +17,10 @@ FIELDS = {
     "property_details": r"property details\s*[:\-]\s*([^\n;]+)",
 }
 
+PAN_NUMBER = re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b", re.I)
+AADHAAR_NUMBER = re.compile(r"\b\d{4}[ -]?\d{4}[ -]?\d{4}\b")
+PAN_SIGNALS = re.compile(r"income\s+tax\s+department|permanent\s+account\s+number", re.I)
+
 
 def parse_date(value):
     value = re.sub(r"\s+", " ", value.strip().rstrip("."))
@@ -33,14 +37,37 @@ class EntityExtractor:
 
     def extract(self,text):
         entities=[]
+        unset = object()
+
+        def add(label, value, start, method, normalized=unset):
+            value = value.strip()
+            if not value or any(e["label"] == label and e["text"].lower() == value.lower() for e in entities):
+                return
+            entities.append({"label": label, "text": value, "start": start,
+                             "end": start + len(value), "method": method,
+                             "normalized": value if normalized is unset else normalized})
+
         for label,pattern in FIELDS.items():
             # Dates can follow prose labels inline; names/numbers remain field-anchored.
             prefix=r"\b" if "date" in label or "birth" in label else r"(?:^|[;\n])\s*"
             for match in re.finditer(prefix+pattern,text,re.I|re.M):
                 value=match.group(1).strip()
                 normalized=parse_date(value) if "date" in label or "birth" in label else value
-                entities.append({"label":label,"text":value,"start":match.start(1),
-                                 "end":match.start(1)+len(value),"method":"labelled_field","normalized":normalized})
+                add(label, value, match.start(1), "labelled_field", normalized)
+
+        # Some official cards print identifiers and DOB as layout fields rather
+        # than ``Label: value``.  These strict formats are safe to recognise
+        # directly and avoid inventing a value from partial OCR.
+        for match in PAN_NUMBER.finditer(text):
+            add("document_number", match.group(), match.start(), "identifier_pattern")
+        for match in AADHAAR_NUMBER.finditer(text):
+            add("document_number", match.group(), match.start(), "identifier_pattern",
+                re.sub(r"\D", "", match.group()))
+        if PAN_SIGNALS.search(text):
+            dates = list(re.finditer(r"\b\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}\b", text))
+            if len(dates) == 1:
+                value = dates[0].group()
+                add("date_of_birth", value, dates[0].start(), "pan_card_layout", parse_date(value))
         if self.model_name:
             from gliner import GLiNER
             if self._model is None:self._model=GLiNER.from_pretrained(self.model_name)

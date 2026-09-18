@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pymupdf
-from PIL import Image, ImageOps
+from PIL import Image, ImageEnhance, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,8 +24,16 @@ class Extractor:
     def ocr(self, image):
         if image.width * image.height > 30_000_000:
             raise ValueError("Image exceeds 30 megapixels.")
-        # Improve contrast for OCR only; preserve the original upload unchanged.
-        image = ImageOps.autocontrast(ImageOps.exif_transpose(image).convert("RGB"))
+        # Improve the OCR copy only; preserve the original upload unchanged.  ID
+        # cards are often low-resolution photographs, where Tesseract benefits
+        # from a larger, greyscale, sharpened image.
+        image = ImageOps.exif_transpose(image).convert("RGB")
+        if image.width < 1600:
+            scale = 1600 / image.width
+            image = image.resize((1600, max(1, round(image.height * scale))), Image.Resampling.LANCZOS)
+        image = ImageOps.autocontrast(ImageOps.grayscale(image))
+        image = ImageEnhance.Contrast(image).enhance(1.35)
+        image = ImageEnhance.Sharpness(image).enhance(1.5)
         if self.backend == "paddle":
             try:
                 from paddleocr import PaddleOCR
@@ -53,12 +61,17 @@ class Extractor:
             match = re.search(r"Rotate:\s*(\d+)", orientation_text)
             confidence = re.search(r"Orientation confidence:\s*([0-9.]+)", orientation_text)
             orientation_confidence = float(confidence.group(1)) if confidence else 0.0
-            if match and orientation_confidence < 1.0:
+            # OSD is unreliable on short card text.  Only rotate when it has a
+            # meaningful confidence score; a low-confidence rotation can turn a
+            # readable card into an unreadable one.
+            if match and orientation_confidence >= 3.0:
                 degrees = int(match.group(1)) % 360
                 if degrees:
                     image = image.rotate(-degrees, expand=True, fillcolor="white")
                     image.save(path)
-            result = subprocess.run([executable, str(path), "stdout", "-l", "eng"],
+            # Sparse-text mode is more reliable for photographed cards than the
+            # default multi-column page layout mode.
+            result = subprocess.run([executable, str(path), "stdout", "-l", "eng", "--psm", "11"],
                                     capture_output=True, timeout=90, check=True)
             text = result.stdout.decode("utf-8", errors="replace").strip()
             if (tessdata / "tam.traineddata").exists():

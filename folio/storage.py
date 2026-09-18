@@ -3,6 +3,7 @@ import sqlite3
 import uuid
 from contextlib import contextmanager
 from datetime import date,datetime,timezone
+from .categories import categorize
 
 
 def now():
@@ -19,7 +20,7 @@ class Store:
               id TEXT PRIMARY KEY,filename TEXT NOT NULL,digest TEXT UNIQUE NOT NULL,
               created_at TEXT NOT NULL,pages TEXT NOT NULL,classification TEXT NOT NULL,
               entities TEXT NOT NULL,expiry_date TEXT,expiry_confirmed INTEGER DEFAULT 0,owner_id TEXT,
-              document_type TEXT DEFAULT 'unknown');
+              document_type TEXT DEFAULT 'unknown',vault_category TEXT DEFAULT 'other');
             CREATE TABLE IF NOT EXISTS originals(
               document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,content BLOB NOT NULL);
             CREATE TABLE IF NOT EXISTS notifications(
@@ -41,6 +42,16 @@ class Store:
                 db.execute("ALTER TABLE documents ADD COLUMN owner_id TEXT")
             if "document_type" not in columns:
                 db.execute("ALTER TABLE documents ADD COLUMN document_type TEXT DEFAULT 'unknown'")
+            if "vault_category" not in columns:
+                db.execute("ALTER TABLE documents ADD COLUMN vault_category TEXT DEFAULT 'other'")
+            # Existing local uploads predate vault folders. Classify them once from
+            # their saved extracted text so they appear in the right folder too.
+            for row in db.execute("SELECT id,pages,classification,document_type,vault_category FROM documents WHERE vault_category IS NULL OR vault_category='other'"):
+                pages=json.loads(row["pages"])
+                classification=json.loads(row["classification"])
+                category=categorize("\n".join(page.get("text","") for page in pages),row["document_type"] or "",classification.get("label", ""))
+                if category != (row["vault_category"] or "other"):
+                    db.execute("UPDATE documents SET vault_category=? WHERE id=?",(category,row["id"]))
             db.executescript("""
             CREATE TABLE IF NOT EXISTS conversations(
               id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,title TEXT NOT NULL,
@@ -75,11 +86,15 @@ class Store:
         item["expiry_confirmed"]=bool(item["expiry_confirmed"])
         return item
 
-    def list(self,owner_id=None):
+    def list(self,owner_id=None,category=None):
         with self.connect() as db:
-            return [self.decode(r) for r in db.execute("""SELECT d.* FROM documents d
-                WHERE d.owner_id IS ? OR EXISTS (SELECT 1 FROM document_shares s WHERE s.document_id=d.id AND s.user_id=?)
-                ORDER BY d.created_at DESC""",(owner_id,owner_id))]
+            query="""SELECT d.* FROM documents d
+                WHERE (d.owner_id IS ? OR EXISTS (SELECT 1 FROM document_shares s WHERE s.document_id=d.id AND s.user_id=?))"""
+            values=[owner_id,owner_id]
+            if category:
+                query+=" AND d.vault_category=?"; values.append(category)
+            query+=" ORDER BY d.created_at DESC"
+            return [self.decode(r) for r in db.execute(query,values)]
 
     def get(self,document_id,owner_id=None):
         with self.connect() as db:
@@ -114,12 +129,24 @@ class Store:
 
     def add(self,item):
         with self.connect() as db:
-            db.execute("INSERT INTO documents(id,filename,digest,created_at,pages,classification,entities,expiry_date,owner_id,document_type) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            db.execute("INSERT INTO documents(id,filename,digest,created_at,pages,classification,entities,expiry_date,owner_id,document_type,vault_category) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (item["id"],item["filename"],item["digest"],now(),json.dumps(item["pages"]),json.dumps(item["classification"]),
-                 json.dumps(item["entities"]),item["expiry_date"],item.get("owner_id"),item.get("document_type", "unknown")))
+                 json.dumps(item["entities"]),item["expiry_date"],item.get("owner_id"),item.get("document_type", "unknown"),item.get("vault_category", "other")))
             if item.get("content") is not None:
                 db.execute("INSERT INTO originals VALUES (?,?)",(item["id"],item["content"]))
         return self.get(item["id"],item.get("owner_id"))
+
+    def replace_analysis(self,document_id,item,owner_id=None):
+        """Replace derived OCR data while retaining the original upload and user choices."""
+        with self.connect() as db:
+            found=db.execute("SELECT id FROM documents WHERE id=? AND owner_id IS ?",(document_id,owner_id)).fetchone()
+            if found is None:return None
+            db.execute("""UPDATE documents SET pages=?,classification=?,entities=?,
+                        expiry_date=CASE WHEN expiry_confirmed=1 THEN expiry_date ELSE ? END,
+                        document_type=?,vault_category=? WHERE id=?""",
+                       (json.dumps(item["pages"]),json.dumps(item["classification"]),json.dumps(item["entities"]),
+                        item["expiry_date"],item.get("document_type","unknown"),item.get("vault_category","other"),document_id))
+        return self.get(document_id,owner_id)
 
     def confirm_expiry(self,document_id,value,owner_id=None):
         if value:value=date.fromisoformat(value).isoformat()

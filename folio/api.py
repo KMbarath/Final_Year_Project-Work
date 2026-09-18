@@ -175,7 +175,8 @@ def create_app(settings=None):
             "extraction_model_error":assistant.prompt_extractor.last_error or None,
             "ocr":settings.ocr_backend,"ocr_installed":bool(shutil.which("tesseract")) if settings.ocr_backend=="tesseract" else bool(importlib.util.find_spec("paddleocr")),
             "entities":settings.entity_model or "labelled fields","whisper_installed":bool(importlib.util.find_spec("whisper")),
-            "piper_configured":bool(settings.piper_model),"translation_configured":bool(settings.translation_model),
+            "piper_configured":bool(settings.piper_model),"translation_configured":bool(settings.translation_model or settings.translation_provider),
+            "translation_provider":settings.translation_provider or ("indictrans2" if settings.translation_model else None),
             "email_configured":mailer.configured}
 
     def owned(document_id,request):
@@ -190,7 +191,15 @@ def create_app(settings=None):
         return found
 
     @app.get("/api/documents")
-    def documents(request:Request):return assistant.store.list(uid(request))
+    def documents(request:Request,category:str|None=None):return assistant.store.list(uid(request),category)
+
+    @app.get("/api/categories")
+    def categories(request:Request):
+        counts={}
+        for item in assistant.store.list(uid(request)):
+            category=item.get("vault_category") or "other"
+            counts[category]=counts.get(category,0)+1
+        return counts
 
     @app.post("/api/documents",status_code=201)
     async def upload(request:Request,file:UploadFile=File(...)):
@@ -199,6 +208,14 @@ def create_app(settings=None):
         if len(data)>settings.max_upload_bytes:raise HTTPException(413,"Maximum upload size is 20 MB.")
         result=await run_in_threadpool(assistant.ingest,data,file.filename or "document.txt",uid(request))
         assistant.store.audit(uid(request),"document_uploaded",result["id"],result["filename"])
+        await run_in_threadpool(notifications.queue)
+        return result
+
+    @app.post("/api/documents/{document_id}/reprocess")
+    async def reprocess(document_id:str,request:Request):
+        owner_document(document_id,request)
+        result=await run_in_threadpool(assistant.reprocess,document_id,uid(request))
+        assistant.store.audit(uid(request),"document_reprocessed",document_id,result["filename"])
         await run_in_threadpool(notifications.queue)
         return result
 
