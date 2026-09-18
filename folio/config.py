@@ -29,6 +29,7 @@ class Settings:
     whisper_model: str = field(default_factory=lambda: os.getenv("FOLIO_WHISPER_MODEL", "base"))
     piper_model: str = field(default_factory=lambda: os.getenv("FOLIO_PIPER_MODEL", ""))
     translation_model: str = field(default_factory=lambda: os.getenv("FOLIO_TRANSLATION_MODEL", ""))
+    translation_api_key: str = field(default_factory=lambda: os.getenv("GOOGLE_TRANSLATE_API_KEY", ""))
     # Google is the default deployed translation adapter. Set this variable to
     # an empty value only when translated answers must be disabled entirely.
     translation_provider: str = field(default_factory=lambda: os.getenv("FOLIO_TRANSLATION_PROVIDER", "google"))
@@ -49,8 +50,8 @@ class Settings:
     def prepare(self):
         if self.smtp_security not in {"starttls","ssl"}:
             raise ValueError("SMTP security must be starttls or ssl.")
-        if self.translation_provider not in {"", "google"}:
-            raise ValueError("FOLIO_TRANSLATION_PROVIDER must be google or blank.")
+        if self.translation_provider not in {"", "google", "google-cloud"}:
+            raise ValueError("FOLIO_TRANSLATION_PROVIDER must be google, google-cloud, or blank.")
         self.data_dir.mkdir(parents=True, exist_ok=True)
         if self.require_models and (not self.ollama_model or not self.extraction_model or not self.embedding_model):
             raise ValueError("FOLIO_REQUIRE_MODELS=1 requires answer, extraction, and embedding models.")

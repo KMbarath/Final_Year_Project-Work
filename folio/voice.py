@@ -1,4 +1,5 @@
 import io
+import html
 import wave
 import shutil
 import subprocess
@@ -70,6 +71,8 @@ class Voice:
             return text
         if target not in LANGUAGES:
             raise ValueError("Unsupported target language.")
+        if self.settings.translation_provider == "google-cloud":
+            return self._translate_google_cloud(text, target)
         if self.settings.translation_provider == "google":
             try:
                 from deep_translator import GoogleTranslator, MyMemoryTranslator
@@ -105,3 +108,22 @@ class Voice:
             output = model.generate(**inputs, max_new_tokens=512, num_beams=4)
         decoded = tokenizer.batch_decode(output, skip_special_tokens=True)
         return processor.postprocess_batch(decoded, lang=LANGUAGES[target])[0]
+
+    def _translate_google_cloud(self, text, target):
+        if not self.settings.translation_api_key:
+            raise FeatureUnavailable("Configure GOOGLE_TRANSLATE_API_KEY for the google-cloud provider.")
+        try:
+            import httpx
+            response = httpx.post(
+                "https://translation.googleapis.com/language/translate/v2",
+                params={"key": self.settings.translation_api_key},
+                json={"q": text, "source": "en", "target": target, "format": "text"},
+                timeout=20,
+            )
+            response.raise_for_status()
+            translated = response.json()["data"]["translations"][0]["translatedText"]
+            return html.unescape(translated)
+        except FeatureUnavailable:
+            raise
+        except Exception as exc:
+            raise FeatureUnavailable("Google Cloud Translation is temporarily unavailable. Try again later.") from exc
